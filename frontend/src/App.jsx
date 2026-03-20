@@ -299,6 +299,12 @@ export const App = () => {
         window.history.replaceState({}, document.title, '/');
         setConnecting(false);
         setAuthCallbackPending(false);
+        
+        // If a user copy-pasted a dirty link with an expired auth code to a new device,
+        // auth fails. Since they never clicked "Launch Terminal" here, bounce them back to the landing page.
+        if (window.localStorage.getItem('TRADOO_ENTERED') !== '1') {
+          setLandingEntered(false);
+        }
       });
 
     return () => { cancelled = true; };
@@ -327,7 +333,17 @@ export const App = () => {
 
   // Determine tab content
   let content;
-  if (authCallbackPending) {
+  if (error && !data && !authRequired && !authCallbackPending) {
+    content = (
+      <div className="card fade-in" style={{ textAlign: 'center', padding: '80px 40px', borderColor: 'var(--red)' }}>
+        <AlertTriangle size={48} style={{ margin: '0 auto 20px', color: 'var(--red)' }} strokeWidth={1.5} />
+        <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 8, letterSpacing: 1, color: 'var(--text-primary)' }}>CONNECTION FAILED</div>
+        <div style={{ fontSize: 13, color: 'var(--text-secondary)', maxWidth: 400, margin: '0 auto' }}>
+          {error}
+        </div>
+      </div>
+    );
+  } else if (authCallbackPending) {
     content = (
       <div className="card fade-in" style={{ textAlign: 'center', padding: '60px 40px' }}>
         <Loader2 className="animate-spin" size={40} style={{ margin: '0 auto 20px', color: 'var(--text-accent)' }} />

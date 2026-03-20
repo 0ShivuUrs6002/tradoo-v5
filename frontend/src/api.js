@@ -50,8 +50,15 @@ export const redirectToLocalTerminal = () => {
 };
 
 const parseJson = async (response) => {
-  const payload = await response.json();
-  return payload;
+  const text = await response.text();
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    if (text.startsWith('<')) {
+      throw new Error(`API Configuration Missing: Vercel is returning an HTML page instead of API data. You must deploy the backend and configure VITE_API_BASE in the Vercel dashboard to point to it.`);
+    }
+    throw new Error(`Invalid JSON Response: ${text.slice(0, 50)}`);
+  }
 };
 
 export const fetchDashboard = async () => {
