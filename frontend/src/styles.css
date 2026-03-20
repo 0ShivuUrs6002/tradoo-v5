@@ -1,0 +1,269 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, Segoe UI, Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(circle at top right, #1e293b 0%, #0b1020 40%, #080d19 100%);
+  color: #ebf2ff;
+}
+
+.app {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.landing-root {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.landing-card {
+  width: min(900px, 95vw);
+  background: linear-gradient(150deg, rgba(22, 30, 49, 0.95), rgba(9, 14, 26, 0.95));
+  border: 1px solid #2a3653;
+  border-radius: 18px;
+  padding: 32px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+}
+
+.landing-card h1 {
+  margin: 12px 0;
+  font-size: 36px;
+}
+
+.landing-card p {
+  color: #9fb0d3;
+  max-width: 700px;
+}
+
+.landing-badge {
+  display: inline-block;
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  border: 1px solid #31508e;
+  color: #7ea3ff;
+  padding: 6px 10px;
+  border-radius: 999px;
+}
+
+.landing-actions {
+  margin-top: 20px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 16px;
+}
+
+.terminal-header {
+  padding: 14px 0;
+}
+
+.subtitle {
+  margin: 4px 0 0;
+  color: #8ea1c8;
+  font-size: 13px;
+}
+
+.status-chip {
+  border: 1px solid #2a3859;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+
+.status-chip.ok {
+  color: #8ff0b0;
+  background: rgba(51, 121, 74, 0.25);
+}
+
+.status-chip.warn {
+  color: #ffd384;
+  background: rgba(125, 88, 28, 0.35);
+}
+
+.status-chip.danger {
+  color: #ff9696;
+  background: rgba(121, 45, 45, 0.35);
+}
+
+.top-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.strip-item {
+  background: #121a2d;
+  border: 1px solid #2b3c5f;
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 4px;
+}
+
+.strip-item span {
+  color: #8da0c7;
+  font-size: 12px;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.tab {
+  background: #131c30;
+  color: #c9d8f7;
+  border: 1px solid #33466e;
+  border-radius: 8px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+
+.tab.active {
+  background: #1d3159;
+  border-color: #4b74ca;
+}
+
+.content {
+  min-height: 420px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.stack {
+  display: grid;
+  gap: 12px;
+}
+
+.metric, .panel {
+  border: 1px solid #2e3f63;
+  background: linear-gradient(180deg, #141d32, #10192d);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.panel.large {
+  grid-column: 1 / -1;
+}
+
+.panel-header {
+  color: #8fa4d1;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.metric-label {
+  font-size: 12px;
+  color: #93a5ca;
+}
+
+.metric-value {
+  font-size: 22px;
+  font-weight: 600;
+  margin-top: 6px;
+}
+
+.kpi-card {
+  min-height: 92px;
+}
+
+.table-wrap {
+  overflow: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th, .table td {
+  border-bottom: 1px solid #2a3a5a;
+  padding: 8px;
+  text-align: left;
+}
+
+.option-table th {
+  position: sticky;
+  top: 0;
+  background: #10192d;
+}
+
+.mini-chart {
+  width: 100%;
+  height: 180px;
+  color: #68a0ff;
+}
+
+.chart-placeholder {
+  color: #8a95b3;
+}
+
+.auth-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.btn {
+  background: #1f3158;
+  color: #dce7ff;
+  border: 1px solid #4267b9;
+  padding: 10px 14px;
+  cursor: pointer;
+  width: fit-content;
+  border-radius: 8px;
+}
+
+.btn.primary {
+  background: #2c4f9e;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid #3a4a6d;
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.badge.ok {
+  color: #8ff0b0;
+  background: rgba(51, 121, 74, 0.25);
+}
+
+.badge.danger {
+  color: #ff9696;
+  background: rgba(121, 45, 45, 0.35);
+}
+
+.badge.neutral {
+  color: #d5e0fb;
+  background: rgba(73, 88, 122, 0.35);
+}
