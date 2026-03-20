@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 // ─── Sparkline Chart ──────────────────────────────────────────────────────────
 
@@ -139,21 +140,24 @@ export const DashboardTab = ({ data }) => {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>Coherent Direction</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, letterSpacing: 0.5 }}>COHERENT DIRECTION</div>
               <span className={`dir-badge ${dirTone || 'neutral'}`}>
-                {dirTone === 'bullish' ? '▲' : dirTone === 'bearish' ? '▼' : '◆'} {dirLabel}
+                {dirTone === 'bullish' ? <TrendingUp size={14} /> : dirTone === 'bearish' ? <TrendingDown size={14} /> : <Minus size={14} />}
+                <span>{dirLabel}</span>
               </span>
             </div>
             <div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Prediction</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4, letterSpacing: 0.5 }}>PREDICTION</div>
               <span className={`dir-badge ${pred.direction === 'BULLISH' ? 'bullish' : pred.direction === 'BEARISH' ? 'bearish' : 'neutral'}`}>
-                {pred.direction || 'NEUTRAL'} · {pred.confidenceLabel || '—'}
+                <span>{pred.direction || 'NEUTRAL'}</span>
+                <span style={{ opacity: 0.5 }}>·</span>
+                <span>{pred.confidenceLabel || '—'}</span>
               </span>
             </div>
             <div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Writer Flow</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4, letterSpacing: 0.5 }}>WRITER FLOW</div>
               <span className={`dir-badge ${a.writerRelation === 'BULLISH_WRITERS' ? 'bullish' : a.writerRelation === 'BEARISH_WRITERS' ? 'bearish' : 'neutral'}`}>
-                {a.writerRelation || 'BALANCED'}
+                <span>{a.writerRelation || 'BALANCED'}</span>
               </span>
             </div>
           </div>

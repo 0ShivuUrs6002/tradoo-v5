@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { LayoutList } from 'lucide-react';
 
 // ─── OI Bar cell ──────────────────────────────────────────────────────────────
 
@@ -49,10 +50,10 @@ export const OptionChainTab = ({ data }) => {
 
   if (!rows.length) {
     return (
-      <div className="card slide-up-1" style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
-        <div style={{ fontSize: 28, marginBottom: 8 }}>📋</div>
-        <div style={{ fontWeight: 600 }}>No option chain data</div>
-        <div style={{ fontSize: 12, marginTop: 4 }}>Connect to Fyers to stream live option chain</div>
+      <div className="card slide-up-1" style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
+        <LayoutList size={32} style={{ margin: '0 auto 12px', opacity: 0.5 }} />
+        <div style={{ fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase' }}>NO CHAIN DATA</div>
+        <div style={{ fontSize: 13, marginTop: 6 }}>Authenticate via Fyers to stream live computation</div>
       </div>
     );
   }

@@ -1,9 +1,10 @@
+import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
+
 // ─── Large Score Display ──────────────────────────────────────────────────────
 
 const ScoreDisplay = ({ score, direction, confidence, confidenceLabel }) => {
   const tone = direction === 'BULLISH' ? 'var(--green)' : direction === 'BEARISH' ? 'var(--red)' : 'var(--amber)';
   const pct = Math.round((confidence || 0) * 100);
-  const arrow = direction === 'BULLISH' ? '▲' : direction === 'BEARISH' ? '▼' : '◆';
 
   return (
     <div style={{ textAlign: 'center', padding: '12px 0' }}>
@@ -15,10 +16,12 @@ const ScoreDisplay = ({ score, direction, confidence, confidenceLabel }) => {
       </div>
       <div style={{ marginTop: 14, display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
         <span className={`dir-badge ${direction === 'BULLISH' ? 'bullish' : direction === 'BEARISH' ? 'bearish' : 'neutral'}`}
-          style={{ fontSize: 15, padding: '8px 20px' }}>
-          {arrow} {direction || 'NEUTRAL'}
+          style={{ fontSize: 14, padding: '8px 20px', letterSpacing: 0.5 }}>
+          {direction === 'BULLISH' ? <TrendingUp size={16} /> : direction === 'BEARISH' ? <TrendingDown size={16} /> : <Minus size={16} />}
+          <span>{direction || 'NEUTRAL'}</span>
         </span>
-        <span className={`dir-badge ${confidenceLabel === 'HIGH' ? 'bullish' : confidenceLabel === 'MEDIUM' ? 'neutral' : 'neutral'}`}>
+        <span className={`dir-badge ${confidenceLabel === 'HIGH' ? 'bullish' : confidenceLabel === 'MEDIUM' ? 'neutral' : 'neutral'}`}
+          style={{ fontSize: 12, letterSpacing: 0.5 }}>
           {confidenceLabel || 'LOW'} CONFIDENCE · {pct}%
         </span>
       </div>

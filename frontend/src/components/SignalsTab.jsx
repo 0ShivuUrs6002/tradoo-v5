@@ -1,17 +1,20 @@
+import { PenTool, Flame, Coins, Target } from 'lucide-react';
+
 // ─── Signal Card ──────────────────────────────────────────────────────────────
 
-const SignalCard = ({ icon, title, value, label, tone, sub, delay = 1 }) => (
+const SignalCard = ({ icon: Icon, title, value, label, tone, sub, delay = 1 }) => (
   <div className={`kpi-card slide-up-${delay}`}>
-    <div style={{ display: 'flex', align: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-      <div className="kpi-label">{icon} {title}</div>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+      {Icon && <Icon size={16} className={`text-${tone || 'neutral'}`} strokeWidth={1.5} />}
+      <div className="kpi-label" style={{ margin: 0, letterSpacing: 0.5 }}>{title}</div>
     </div>
     <div className={`kpi-value${tone ? ' ' + tone : ''}`}>{value}</div>
     {label && (
-      <span className={`dir-badge ${tone || 'neutral'}`} style={{ marginTop: 8, alignSelf: 'flex-start' }}>
+      <span className={`dir-badge ${tone || 'neutral'}`} style={{ marginTop: 10, alignSelf: 'flex-start' }}>
         {label}
       </span>
     )}
-    {sub && <div className="kpi-sub" style={{ marginTop: 4 }}>{sub}</div>}
+    {sub && <div className="kpi-sub" style={{ marginTop: 6, opacity: 0.7 }}>{sub}</div>}
   </div>
 );
 
@@ -55,27 +58,27 @@ export const SignalsTab = ({ data }) => {
       {/* Top signal cards */}
       <div className="grid2">
         <SignalCard
-          icon="📝" title="Writer Flow" delay={1}
+          icon={PenTool} title="WRITER FLOW" delay={1}
           value={a.writer != null ? (a.writer > 0 ? '+' : '') + a.writer.toFixed(4) : '—'}
           label={a.writerRelation || 'BALANCED'}
           tone={writerTone}
           sub={`Put pressure vs Call pressure`}
         />
         <SignalCard
-          icon="🔥" title="Breakout Score" delay={2}
+          icon={Flame} title="BREAKOUT SCORE" delay={2}
           value={btScore != null ? (btScore > 0 ? '+' : '') + btScore.toFixed(4) : '—'}
           label={btScore > 0.2 ? 'BREAKOUT LIKELY' : btScore < -0.2 ? 'BREAKDOWN RISK' : 'CONSOLIDATING'}
           tone={btTone}
           sub={`Momentum + Writer + Volume + Volatility`}
         />
         <SignalCard
-          icon="💰" title="Buyer / Seller" delay={3}
+          icon={Coins} title="BUYER / SELLER" delay={3}
           value={a.buyerSeller || '—'}
           tone={bsTone}
           sub={`Based on OI change & price direction`}
         />
         <SignalCard
-          icon="🎯" title="Market Bias" delay={4}
+          icon={Target} title="MARKET BIAS" delay={4}
           value={a.biasScore != null ? (a.biasScore > 0 ? '+' : '') + a.biasScore.toFixed(4) : '—'}
           label={a.biasScore > 0.1 ? 'BULLISH' : a.biasScore < -0.1 ? 'BEARISH' : 'NEUTRAL'}
           tone={biosTone}
@@ -91,12 +94,12 @@ export const SignalsTab = ({ data }) => {
             {coh.coherentDirection || 'NEUTRAL'}
           </span>
         </div>
-        <div style={{ marginBottom: 8, fontSize: 12, color: 'var(--text-muted)' }}>
-          Dominant signal: <strong style={{ color: 'var(--text-secondary)' }}>{coh.dominantSignal || '—'}</strong>
-          &nbsp;·&nbsp; Score: <strong style={{ color: 'var(--text-accent)', fontFamily: 'var(--font-mono)' }}>{coh.coherenceScore?.toFixed(4) || '—'}</strong>
+        <div style={{ marginBottom: 12, fontSize: 12, color: 'var(--text-muted)' }}>
+          Dominant vector: <strong style={{ color: 'var(--text-secondary)', textTransform: 'uppercase' }}>{coh.dominantSignal || '—'}</strong>
+          &nbsp;·&nbsp; Total Score: <strong style={{ color: 'var(--text-accent)', fontFamily: 'var(--font-mono)' }}>{coh.coherenceScore?.toFixed(4) || '—'}</strong>
         </div>
         {coh.signalBreakdown && (
-          <div>
+          <div style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.2)', borderRadius: 6, border: '1px solid var(--border-color)' }}>
             <ScoreBar label="Price vs VWAP" value={coh.signalBreakdown.price} />
             <ScoreBar label="GEX Signal" value={coh.signalBreakdown.gex} />
             <ScoreBar label="Momentum" value={coh.signalBreakdown.momentum} />

@@ -7,6 +7,10 @@ import { OptionChainTab } from './components/OptionChainTab';
 import { AnalyticsTab } from './components/AnalyticsTab';
 import { PredictionTab } from './components/PredictionTab';
 import { getLoginUrl, logoutAuth, setManualToken, validateAuthCode } from './api';
+import {
+  Activity, ArrowRight, Check, Zap, LogOut,
+  Target, ShieldCheck, TrendingUp, Key, Loader2, AlertTriangle, ChevronRight
+} from 'lucide-react';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -47,31 +51,31 @@ const AuthPanel = ({ message, onConnect, onManualConnect, onReset, connecting })
   return (
     <div className="auth-root fade-in">
       <div className="auth-card slide-up-1">
-        <div className="auth-title">Connect to Fyers</div>
+        <div className="auth-title">Connect Platform</div>
         <div className="auth-subtitle">
-          Authenticate with your Fyers account to enable the live data pipeline.
+          Authenticate via Fyers OAuth to activate real-time intelligence feeds.
         </div>
 
         <div className="stepper">
           <div className="step-item">
             <div className="step-num">1</div>
             <div className="step-text">
-              <strong>Open Fyers Login</strong>
-              <p>Click the button below to open the Fyers authorization page in your browser.</p>
+              <strong>Initiate OAuth</strong>
+              <p>Redirect securely to Fyers authorization gateway.</p>
             </div>
           </div>
           <div className="step-item">
             <div className="step-num">2</div>
             <div className="step-text">
-              <strong>Log In & Authorize</strong>
-              <p>Log in with your Fyers credentials and approve access for TRADO.</p>
+              <strong>Grant Access</strong>
+              <p>Approve application scope for live data access.</p>
             </div>
           </div>
           <div className="step-item">
             <div className="step-num">3</div>
             <div className="step-text">
-              <strong>Auto-Connect or Paste Token</strong>
-              <p>TRADO will auto-detect the auth code from the redirect URL. If it fails, paste your access token below.</p>
+              <strong>Establish Link</strong>
+              <p>System auto-captures code and initiates terminal pipeline.</p>
             </div>
           </div>
         </div>
@@ -81,52 +85,48 @@ const AuthPanel = ({ message, onConnect, onManualConnect, onReset, connecting })
           className="btn primary btn-full"
           onClick={onConnect}
           disabled={connecting}
-          style={{ marginBottom: 12 }}
+          style={{ marginBottom: 16 }}
         >
-          {connecting ? '↻ Redirecting…' : '⚡ Connect Fyers'}
+          {connecting ? (
+            <><Loader2 className="animate-spin" size={16} /> Redirecting</>
+          ) : (
+            <><Zap size={16} /> Authenticate Broker</>
+          )}
         </button>
 
         {message && message !== 'Authenticate to enable live data pipeline.' && (
-          <div style={{
-            background: 'rgba(248,113,113,0.1)',
-            border: '1px solid rgba(248,113,113,0.3)',
-            borderRadius: 8,
-            padding: '10px 12px',
-            fontSize: 12,
-            color: '#f87171',
-            marginBottom: 12,
-            lineHeight: 1.5
-          }}>
-            ⚠ {message}
+          <div className="alert-box error">
+            <AlertTriangle size={16} style={{ marginTop: 2, flexShrink: 0 }} />
+            <span>{message}</span>
           </div>
         )}
       </div>
 
-      <div className="auth-card slide-up-2" style={{ borderColor: 'rgba(55,80,140,0.3)' }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>
-          Manual Fallback — Paste Access Token
+      <div className="auth-card slide-up-2">
+        <div className="auth-override-title">
+          Manual Override
         </div>
-        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12, lineHeight: 1.5 }}>
-          If you already have an access token from the Fyers API Dashboard,
-          paste it directly here to skip the OAuth flow.
-        </div>
+        <p className="auth-override-desc">
+          Bypass standard OAuth flow manually via direct token ingestion.
+        </p>
         <textarea
           className="token-input"
-          placeholder="Paste your Fyers access token here…"
+          placeholder="Enter institutional access token here"
           value={token}
           onChange={(e) => setToken(e.target.value)}
           rows={3}
         />
-        <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+        <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
           <button
             type="button"
             className="btn success"
             onClick={handleSubmit}
             disabled={!token.trim() || submitting}
           >
-            {submitting ? 'Connecting…' : '✓ Use Token'}
+            {submitting ? <Loader2 className="animate-spin" size={16} /> : <Check size={16} />}
+            <span>{submitting ? 'Verifying' : 'Inject Token'}</span>
           </button>
-          <button type="button" className="btn ghost btn-sm" onClick={onReset}>
+          <button type="button" className="btn ghost" onClick={onReset}>
             Reset
           </button>
         </div>
@@ -141,11 +141,12 @@ const Landing = ({ onEnter, onConnect, connecting }) => (
   <main className="landing-root">
     <div className="landing-bg" />
     <div className="landing-grid-pattern" />
+    <div className="landing-glow" />
     <div className="landing-inner">
       <div className="slide-up-1">
         <span className="landing-eyebrow">
           <span className="eyebrow-dot" />
-          TRADO v5 · Quant Trading Terminal
+          SYSTEM V5 · TRADING TERMINAL
         </span>
       </div>
 
@@ -155,33 +156,35 @@ const Landing = ({ onEnter, onConnect, connecting }) => (
           <span className="hl-accent">trading intelligence</span>
         </h1>
         <p className="landing-sub">
-          Real-time option chain analytics, GEX, bias signals, prediction engine and
-          stable non-flickering data — all powered by Fyers API.
+          Continuous low-latency option chain computation, synthetic GEX proxy modeling, multi-factor bias engines, and mathematical support levels.
         </p>
       </div>
 
       <div className="landing-actions slide-up-3">
-        <button type="button" className="btn primary" onClick={onEnter} style={{ fontSize: 15, padding: '13px 28px' }}>
-          Enter Terminal →
+        <button type="button" className="btn primary" onClick={onEnter}>
+          Launch Terminal <ArrowRight size={18} />
         </button>
-        <button type="button" className="btn ghost" onClick={onConnect} disabled={connecting}>
-          {connecting ? 'Redirecting…' : '⚡ Connect Fyers'}
+        <button type="button" className="btn secondary" onClick={onConnect} disabled={connecting}>
+          {connecting ? <Loader2 className="animate-spin" size={16} /> : <Zap size={16} />}
+          <span>Broker Link</span>
         </button>
       </div>
 
-      <div className="landing-features slide-up-4" style={{ marginTop: 4 }}>
+      <div className="landing-features slide-up-4">
         {[
-          { icon: '📊', title: 'Live Option Chain', desc: 'Real-time OI, OI change, volume with ATM highlighting' },
-          { icon: '🎯', title: 'Bias & Prediction', desc: 'Multi-factor market bias and directional prediction score' },
-          { icon: '⚡', title: 'GEX Analytics', desc: 'Gamma Exposure tracking with call/put writer signals' },
-          { icon: '🔒', title: 'Stable Data', desc: 'EMA smoothing, 3-cycle confirmation, 5s UI freeze' },
-          { icon: '📈', title: 'Support/Resistance', desc: 'OI-weighted S/R with 2-min stability lock' },
-          { icon: '🔐', title: 'Simple Auth', desc: 'One-click Fyers OAuth or paste token fallback' },
+          { icon: Activity, title: 'Synthetic Chain', desc: 'Real-time structured derivation of delta and volume.' },
+          { icon: Target, title: 'Bias Engine', desc: 'Predictive multi-factor directional modeling.' },
+          { icon: Zap, title: 'GEX Proxy', desc: 'Gamma-driven institutional exposure estimation.' },
+          { icon: ShieldCheck, title: 'Stable Feed', desc: 'Sub-second EMA filtering with 3-cycle consensus.' },
+          { icon: TrendingUp, title: 'Quantitative S/R', desc: 'OI-weighted liquidity walls calculation.' },
+          { icon: Key, title: 'Secure OAuth', desc: 'Direct encrypted credential pipelines.' },
         ].map((f) => (
           <div className="feature-pill" key={f.title}>
-            <span className="feature-icon">{f.icon}</span>
-            <div className="feature-title">{f.title}</div>
-            <div className="feature-desc">{f.desc}</div>
+            <div className="feature-icon-wrap"><f.icon size={18} strokeWidth={1.5} /></div>
+            <div>
+              <div className="feature-title">{f.title}</div>
+              <div className="feature-desc">{f.desc}</div>
+            </div>
           </div>
         ))}
       </div>
@@ -200,7 +203,7 @@ const TopStrip = ({ data }) => {
     { label: 'Spot', value: a.spot ? a.spot.toLocaleString('en-IN', { maximumFractionDigits: 2 }) : '—' },
     { label: 'Bias', value: a.biasScore != null ? (a.biasScore > 0 ? '+' : '') + a.biasScore.toFixed(3) : '—' },
     { label: 'Direction', value: coh.coherentDirection || '—' },
-    { label: 'Prediction', value: pred.predictionScore != null ? (pred.predictionScore > 0 ? '+' : '') + pred.predictionScore.toFixed(3) : '—' },
+    { label: 'Predict', value: pred.predictionScore != null ? (pred.predictionScore > 0 ? '+' : '') + pred.predictionScore.toFixed(3) : '—' },
   ];
 
   return (
@@ -234,13 +237,13 @@ export const App = () => {
     try {
       const result = await getLoginUrl();
       if (!result?.authCodeUrl) {
-        setAuthMessage('Could not get Fyers login URL. Check backend credentials in .env');
+        setAuthMessage('System configuration error. Check backend VITE_FYERS_APP_ID.');
         setConnecting(false);
         return;
       }
       window.location.href = result.authCodeUrl;
     } catch (e) {
-      setAuthMessage(e.message || 'Unable to start Fyers login.');
+      setAuthMessage(e.message || 'Unable to establish auth gateway connection.');
       setConnecting(false);
     }
   };
@@ -251,7 +254,7 @@ export const App = () => {
       window.localStorage.setItem('TRADOO_ENTERED', '1');
       window.location.reload();
     } catch (e) {
-      setAuthMessage(e.message || 'Manual token failed.');
+      setAuthMessage(e.message || 'Token injection failed.');
     }
   };
 
@@ -262,7 +265,7 @@ export const App = () => {
       window.history.replaceState({}, document.title, '/');
       window.location.reload();
     } catch (e) {
-      setAuthMessage(e.message || 'Reset failed.');
+      setAuthMessage(e.message || 'Session purge failed.');
     }
   };
 
@@ -271,7 +274,6 @@ export const App = () => {
     setLandingEntered(true);
   };
 
-  // Handle auth callback from Fyers redirect
   useEffect(() => {
     const authCode = getAuthCodeFromUrl();
     const accessToken = getAccessTokenFromUrl();
@@ -293,7 +295,7 @@ export const App = () => {
       })
       .catch((e) => {
         if (cancelled) return;
-        setAuthMessage(e.message || 'Auth callback failed.');
+        setAuthMessage(e.message || 'Auth handshake rejected.');
         window.history.replaceState({}, document.title, '/');
         setConnecting(false);
         setAuthCallbackPending(false);
@@ -316,7 +318,7 @@ export const App = () => {
   }, [tabData]);
 
   const statusTone = authRequired ? 'warn' : error ? 'danger' : loading ? 'warn' : 'ok';
-  const statusText = loading ? 'Initializing…' : authRequired ? 'Auth required' : error ? 'Feed error' : 'Live feed';
+  const statusText = loading ? 'INITIALIZING' : authRequired ? 'AUTH PENDING' : error ? 'FEED DISCONNECTED' : 'LIVE SOCKET';
 
   // Landing
   if (!landingEntered) {
@@ -327,10 +329,10 @@ export const App = () => {
   let content;
   if (authCallbackPending) {
     content = (
-      <div className="card fade-in" style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>
-        <div style={{ fontSize: 32, marginBottom: 12 }}>⚙</div>
-        <div style={{ fontWeight: 600, marginBottom: 4 }}>Validating Fyers Auth…</div>
-        <div style={{ fontSize: 12 }}>Please wait while we complete authentication.</div>
+      <div className="card fade-in" style={{ textAlign: 'center', padding: '60px 40px' }}>
+        <Loader2 className="animate-spin" size={40} style={{ margin: '0 auto 20px', color: 'var(--text-accent)' }} />
+        <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 8, letterSpacing: 1 }}>VERIFYING CREDENTIALS</div>
+        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Establishing secure pipeline connection...</div>
       </div>
     );
   } else if (authRequired && !data) {
@@ -354,8 +356,8 @@ export const App = () => {
       <div className="grid2">
         {Array.from({ length: 6 }).map((_, i) => (
           <div key={i} className="kpi-card">
-            <div className="skeleton" style={{ height: 12, width: '50%', marginBottom: 8 }} />
-            <div className="skeleton" style={{ height: 24, width: '70%' }} />
+            <div className="skeleton" style={{ height: 12, width: '40%', marginBottom: 12 }} />
+            <div className="skeleton" style={{ height: 32, width: '60%' }} />
           </div>
         ))}
       </div>
@@ -372,18 +374,18 @@ export const App = () => {
             <div className="brand-logo">T5</div>
             <div>
               <div className="brand-name">TRADO</div>
-              <div className="brand-version">v5 · Quant Terminal</div>
+              <div className="brand-version">TERMINAL OS</div>
             </div>
           </div>
           <div className="header-right">
             {data && <TopStrip data={data} />}
             <div className={`status-badge ${statusTone}`}>
-              <span className="status-dot" />
+              <span className={`status-dot ${statusTone}`} />
               {statusText}
             </div>
             {data && (
-              <button type="button" className="btn ghost btn-sm" onClick={resetConnection} title="Disconnect">
-                ⏏
+              <button type="button" className="btn ghost icon-only" onClick={resetConnection} title="Terminate Connection">
+                <LogOut size={16} />
               </button>
             )}
           </div>

@@ -1,4 +1,26 @@
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000/api';
+const getApiBase = () => {
+  // 1. Explicit env variable takes precedence
+  if (import.meta.env.VITE_API_BASE) {
+    return import.meta.env.VITE_API_BASE;
+  }
+  
+  // 2. Client-side fallback detection
+  if (typeof window !== 'undefined') {
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    
+    // If deployed on Vercel/Netlify but env var is missing, default to relative path.
+    // This assumes the user has configured Vercel redirects/rewrites to their backend.
+    if (!isLocal) {
+      return '/api';
+    }
+  }
+  
+  // 3. Localhost default
+  return 'http://localhost:4000/api';
+};
+
+const API_BASE = getApiBase();
+
 const FYERS_APP_ID = import.meta.env.VITE_FYERS_APP_ID || 'UO02TNC3AU-100';
 const FYERS_LOGIN_BASE = import.meta.env.VITE_FYERS_LOGIN_BASE_URL || 'https://api-t1.fyers.in/api/v3';
 const FYERS_REDIRECT_URI = import.meta.env.VITE_FYERS_REDIRECT_URI || 'https://frontend-virid-ten-vaa5fuxyde.vercel.app';
@@ -36,7 +58,7 @@ export const fetchDashboard = async () => {
   const response = await fetch(`${API_BASE}/dashboard`, { method: 'GET' });
   const payload = await parseJson(response);
   if (!response.ok || !payload?.ok) {
-    const error = new Error(payload?.message || payload?.error || 'Dashboard fetch failed');
+    const error = new Error(payload?.message || payload?.error || 'Pipeline fetch failed');
     error.payload = payload;
     throw error;
   }
@@ -60,7 +82,7 @@ export const getLoginUrl = async () => {
   const response = await fetch(`${API_BASE}/auth/login-url?state=${encodeURIComponent(state)}`, { method: 'GET' });
   const payload = await parseJson(response);
   if (!response.ok || !payload?.ok) {
-    throw new Error(payload?.message || payload?.error || 'Failed to generate Fyers login URL');
+    throw new Error(payload?.message || payload?.error || 'Failed to initialize Fyers OAuth gateway');
   }
   return payload.data;
 };
@@ -78,11 +100,8 @@ export const validateAuthCode = async (authCode) => {
 
     const payload = await parseJson(response);
     if (!response.ok || !payload?.ok) {
-      const base = payload?.message || payload?.error || 'Auth code validation failed';
-      const providerCode = payload?.providerCode ? ` [providerCode=${payload.providerCode}]` : '';
-      const providerStatus = payload?.providerStatus ? ` [providerStatus=${payload.providerStatus}]` : '';
-      const hint = payload?.hint ? ` | ${payload.hint}` : '';
-      throw new Error(`${base}${providerCode}${providerStatus}${hint}`);
+      const base = payload?.message || payload?.error || 'Auth validation rejected';
+      throw new Error(base);
     }
     return payload.data;
   } finally {
@@ -99,7 +118,7 @@ export const setManualToken = async ({ accessToken, refreshToken, expiresInSecon
 
   const payload = await parseJson(response);
   if (!response.ok || !payload?.ok) {
-    throw new Error(payload?.message || payload?.error || 'Manual token setup failed');
+    throw new Error(payload?.message || payload?.error || 'Token injection failed');
   }
   return payload.data;
 };
@@ -111,7 +130,7 @@ export const logoutAuth = async () => {
   });
   const payload = await parseJson(response);
   if (!response.ok || !payload?.ok) {
-    throw new Error(payload?.message || payload?.error || 'Logout failed');
+    throw new Error(payload?.message || payload?.error || 'Session termination failed');
   }
   return payload.data;
 };
