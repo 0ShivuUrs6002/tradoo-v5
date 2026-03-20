@@ -14,19 +14,7 @@ class PipelineOrchestrator {
     this.snapshotBuffer = new SnapshotBuffer(20);
     this.currentOutput = null;
     this.timer = null;
-  }
-
-  buyerSellerSignal(rows) {
-    const scores = rows.map((row) => {
-      const callSide = (row.callOIChange || 0) + (row.callVolume || 0) + (row.callLtp || 0);
-      const putSide = (row.putOIChange || 0) + (row.putVolume || 0) + (row.putLtp || 0);
-      return putSide - callSide;
-    });
-
-    const net = scores.reduce((sum, value) => sum + value, 0);
-    if (net > 0) return 'BUYER_DOMINANT';
-    if (net < 0) return 'SELLER_DOMINANT';
-    return 'BALANCED';
+    this.cycleCount = 0;
   }
 
   async cycle() {
@@ -41,15 +29,15 @@ class PipelineOrchestrator {
       const snapshot = createSnapshot(raw);
       const previous = this.snapshotBuffer.last();
       this.snapshotBuffer.push(snapshot);
+      this.cycleCount += 1;
 
       const smoothed = smoothingEngine.smooth(snapshot, previous);
       const analytics = analyticsEngine.run({ snapshotBuffer: this.snapshotBuffer, smoothed });
-      analytics.writerRelation = this.buyerSellerSignal(smoothed.smoothedRows);
 
       const prediction = predictionEngine.run(analytics);
       const coherence = coherenceEngine.run({ analytics, prediction });
 
-      const stabilityResult = stabilityEngine.run({
+      const rawPayload = {
         timestamp: snapshot.timestamp,
         analytics,
         prediction,
@@ -57,16 +45,20 @@ class PipelineOrchestrator {
         meta: {
           snapshots: this.snapshotBuffer.getAll().length,
           smoothedRows: smoothed.smoothedRows,
-          candles: snapshot.candles,
+          candles: snapshot.candles || [],
           spot: snapshot.spot,
-          futures: snapshot.futures
+          futures: snapshot.futures,
+          cycleCount: this.cycleCount
         }
-      });
+      };
+
+      const stabilityResult = stabilityEngine.run(rawPayload);
 
       this.currentOutput = {
         ...stabilityResult.payload,
         stability: {
-          confirmedCycles: stabilityEngine.pendingCount,
+          confirmedCycles: stabilityEngine.confirmedCycles,
+          pendingCycles: stabilityEngine.pendingCount,
           frozenUntil: stabilityResult.frozenUntil,
           updated: stabilityResult.updated
         }

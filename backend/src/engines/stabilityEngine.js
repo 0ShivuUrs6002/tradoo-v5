@@ -2,6 +2,7 @@ class StabilityEngine {
   constructor() {
     this.pendingDirection = null;
     this.pendingCount = 0;
+    this.confirmedCycles = 0;
     this.lastStablePayload = null;
     this.uiFrozenUntil = 0;
   }
@@ -20,6 +21,7 @@ class StabilityEngine {
     const confirmed = this.pendingCount >= 3;
 
     if (confirmed && now >= this.uiFrozenUntil) {
+      this.confirmedCycles += 1;
       this.lastStablePayload = payload;
       this.uiFrozenUntil = now + 5000;
       return {

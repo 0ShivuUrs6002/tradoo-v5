@@ -1,4 +1,31 @@
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000/api';
+const FYERS_APP_ID = import.meta.env.VITE_FYERS_APP_ID || 'UO02TNC3AU-100';
+const FYERS_LOGIN_BASE = import.meta.env.VITE_FYERS_LOGIN_BASE_URL || 'https://api-t1.fyers.in/api/v3';
+const FYERS_REDIRECT_URI = import.meta.env.VITE_FYERS_REDIRECT_URI || 'https://frontend-virid-ten-vaa5fuxyde.vercel.app';
+
+export const needsLocalBridge = () => {
+  const isHttpsPage = typeof window !== 'undefined' && window.location.protocol === 'https:';
+  const usesHttpLocalApi = API_BASE.startsWith('http://localhost') || API_BASE.startsWith('http://127.0.0.1');
+  return isHttpsPage && usesHttpLocalApi;
+};
+
+export const buildDirectLoginUrl = (state = `TRADO_${Date.now()}`) => {
+  const url = `${FYERS_LOGIN_BASE}/generate-authcode?${new URLSearchParams({
+    client_id: FYERS_APP_ID,
+    redirect_uri: FYERS_REDIRECT_URI,
+    response_type: 'code',
+    state
+  }).toString()}`;
+
+  return { authCodeUrl: url, state };
+};
+
+export const redirectToLocalTerminal = () => {
+  if (typeof window === 'undefined') return;
+  const query = window.location.search || '';
+  const hash = window.location.hash || '';
+  window.location.href = `http://localhost:5173/${query}${hash}`;
+};
 
 const parseJson = async (response) => {
   const payload = await response.json();
@@ -13,7 +40,10 @@ export const fetchDashboard = async () => {
     error.payload = payload;
     throw error;
   }
-  return payload.data;
+  return {
+    ...payload.data,
+    __warming: Boolean(payload?.warming)
+  };
 };
 
 export const getAuthStatus = async () => {
@@ -36,15 +66,52 @@ export const getLoginUrl = async () => {
 };
 
 export const validateAuthCode = async (authCode) => {
-  const response = await fetch(`${API_BASE}/auth/validate-authcode`, {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12000);
+  try {
+    const response = await fetch(`${API_BASE}/auth/validate-authcode`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ authCode }),
+      signal: controller.signal
+    });
+
+    const payload = await parseJson(response);
+    if (!response.ok || !payload?.ok) {
+      const base = payload?.message || payload?.error || 'Auth code validation failed';
+      const providerCode = payload?.providerCode ? ` [providerCode=${payload.providerCode}]` : '';
+      const providerStatus = payload?.providerStatus ? ` [providerStatus=${payload.providerStatus}]` : '';
+      const hint = payload?.hint ? ` | ${payload.hint}` : '';
+      throw new Error(`${base}${providerCode}${providerStatus}${hint}`);
+    }
+    return payload.data;
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
+export const setManualToken = async ({ accessToken, refreshToken, expiresInSeconds }) => {
+  const response = await fetch(`${API_BASE}/auth/set-token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ authCode })
+    body: JSON.stringify({ accessToken, refreshToken, expiresInSeconds })
   });
 
   const payload = await parseJson(response);
   if (!response.ok || !payload?.ok) {
-    throw new Error(payload?.message || payload?.error || 'Auth code validation failed');
+    throw new Error(payload?.message || payload?.error || 'Manual token setup failed');
+  }
+  return payload.data;
+};
+
+export const logoutAuth = async () => {
+  const response = await fetch(`${API_BASE}/auth/logout`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  });
+  const payload = await parseJson(response);
+  if (!response.ok || !payload?.ok) {
+    throw new Error(payload?.message || payload?.error || 'Logout failed');
   }
   return payload.data;
 };
