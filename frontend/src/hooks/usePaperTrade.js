@@ -16,9 +16,9 @@ const calculatePositionPnL = (pos, marketData) => {
       currentPrice = marketData.futures;
     } else if (assetType === 'CE' || assetType === 'PE') {
       // Find strike in option chain
-      const row = marketData.optionChain?.find(r => r.strikePrice === strike);
+      const row = marketData.optionChain?.find(r => r.strike === strike);
       if (row) {
-        currentPrice = assetType === 'CE' ? row.ce?.ltp : row.pe?.ltp;
+        currentPrice = assetType === 'CE' ? row.callLtp : row.putLtp;
       }
     }
   }
