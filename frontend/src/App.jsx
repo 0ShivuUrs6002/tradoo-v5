@@ -6,7 +6,8 @@ import { SignalsTab } from './components/SignalsTab';
 import { OptionChainTab } from './components/OptionChainTab';
 import { AnalyticsTab } from './components/AnalyticsTab';
 import { PredictionTab } from './components/PredictionTab';
-import { PaperTradeTab } from './components/PaperTradeTab';
+import { PaperTradeWorkspace } from './components/PaperTradeWorkspace';
+import { PaperTradeTracker } from './components/PaperTradeTracker';
 import { SettingsTab } from './components/SettingsTab';
 import { WorldDashboard } from './components/WorldDashboard';
 import { AssetDropdown } from './components/AssetDropdown';
@@ -297,6 +298,7 @@ export const App = () => {
   const { theme, toggleTheme } = useTheme();
   const { activeWorld, selectedAsset, transitioning, worldConfig } = useWorld();
   const { isPaperTradeEnabled } = usePaperTradeConfig();
+  const [showWorkspace, setShowWorkspace] = useState(false);
 
   // World data for commodity/crypto
   const [worldData, setWorldData] = useState(null);
@@ -458,7 +460,6 @@ export const App = () => {
     else if (activeTab === 'Option Chain') content = <OptionChainTab data={data} />;
     else if (activeTab === 'Analytics') content = <AnalyticsTab data={data} />;
     else if (activeTab === 'Prediction') content = <PredictionTab data={data} />;
-    else if (activeTab === 'Paper Trade') content = <PaperTradeTab data={data} />;
   } else {
     content = (
       <div className="grid2">
@@ -487,6 +488,7 @@ export const App = () => {
           </div>
           <div className="header-right">
             {data && <TopStrip data={data} />}
+            {data && activeWorld === 'nifty' && <PaperTradeTracker data={data} onOpenWorkspace={() => setShowWorkspace(true)} />}
             {activeWorld !== 'nifty' && <AssetDropdown />}
             <div className={`status-badge ${statusTone}`}>
               <span className={`status-dot ${statusTone}`} />
@@ -512,7 +514,7 @@ export const App = () => {
           worldTabs={
             activeWorld === 'commodities' ? COMMODITY_TABS 
             : activeWorld === 'crypto' ? CRYPTO_TABS 
-            : (isPaperTradeEnabled ? [...NIFTY_TABS.filter(t => t.id !== 'Settings'), PAPER_TRADE_TAB, NIFTY_TABS.find(t => t.id === 'Settings')] : NIFTY_TABS)
+            : NIFTY_TABS
           }
         />
 
@@ -546,6 +548,9 @@ export const App = () => {
 
         {/* World Transition Overlay */}
         <WorldTransition />
+
+        {/* Paper Trade Full-Screen Workspace */}
+        {showWorkspace && <PaperTradeWorkspace data={data} onClose={() => setShowWorkspace(false)} />}
 
         {/* PWA Install Banner */}
         <PWAInstallBanner />

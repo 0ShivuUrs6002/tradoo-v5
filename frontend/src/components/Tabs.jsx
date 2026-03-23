@@ -1,4 +1,4 @@
-import { LayoutDashboard, Zap, List, PieChart, Target, Settings, BookOpen } from 'lucide-react';
+import { LayoutDashboard, Zap, List, PieChart, Target, Settings } from 'lucide-react';
 
 const TABS = [
   { id: 'Dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -47,5 +47,3 @@ export const CRYPTO_TABS = [
   { id: 'Prediction', icon: Target, label: 'Predict' },
   { id: 'Settings', icon: Settings, label: 'Settings' },
 ];
-
-export const PAPER_TRADE_TAB = { id: 'Paper Trade', icon: BookOpen, label: 'Paper' };
