@@ -1,4 +1,4 @@
-import { clamp, normalize, round, stdDev } from '../utils/math.js';
+import { clamp, normalize, round, stdDev, adaptiveNormalize } from '../utils/math.js';
 
 const proximity = (strike, spot) => 1 / (1 + Math.abs(strike - spot) / 50);
 
@@ -126,7 +126,7 @@ export class AnalyticsEngine {
     return { support: currentSupport, resistance: currentResistance };
   }
 
-  run({ snapshotBuffer, smoothed }) {
+  run({ snapshotBuffer, smoothed, indicators }) {
     const snapshots = snapshotBuffer.getAll();
     if (!snapshots.length) return this._empty();
 
@@ -135,7 +135,7 @@ export class AnalyticsEngine {
     const oneMinAgo = snapshots.find((s) => (current.timestamp - s.timestamp) >= 60 * 1000) || snapshots[0] || current;
 
     const spot = smoothed.smoothedSpot || current.spot?.ltp || 0;
-    const prices = snapshots.map((s) => s.spot?.ltp || 0).filter((v) => v > 0).slice(-20);
+    const prices = snapshots.map((s) => s.spot?.ltp || 0).filter((v) => v > 0).slice(-60);
 
     const momentum = round(spot - (fiveMinAgo?.spot?.ltp || spot), 2);
     const shortMomentum = round(spot - (oneMinAgo?.spot?.ltp || spot), 2);
@@ -153,23 +153,45 @@ export class AnalyticsEngine {
 
     const buyerSeller = this.buyerSellerRatio(smoothed.smoothedRows, spot, fiveMinAgo?.spot?.ltp);
 
+    // Use adaptive normalization with rolling histories from indicator engine
+    const normMomentum = indicators
+      ? adaptiveNormalize(momentum, indicators.momentumHistory, 100)
+      : normalize(momentum, 100);
+    const normGex = indicators
+      ? adaptiveNormalize(gex, indicators.gexHistory, 100000)
+      : normalize(gex, 100000);
+    const normVwapDev = indicators?.atr > 0
+      ? clamp((spot - vwap) / indicators.atr)  // ATR-relative VWAP deviation
+      : normalize(spot - vwap, 100);
+    const normLiquidity = indicators
+      ? adaptiveNormalize(liquidity, indicators.liquidityHistory, 1000000)
+      : normalize(liquidity, 1000000);
+    const normVolatility = indicators
+      ? adaptiveNormalize(volatility, indicators.volatilityHistory, 100)
+      : normalize(volatility, 100);
+
     const biasScore = round(
-      (0.30 * normalize(momentum, 100)) +
-      (0.25 * normalize(spot - vwap, 100)) +
-      (0.25 * normalize(gex, 100000)) +
+      (0.30 * normMomentum) +
+      (0.25 * normVwapDev) +
+      (0.25 * normGex) +
       (0.20 * writer),
       4
     );
 
     const prox = proximity(srStable.support?.strike || spot, spot);
     const breakoutScore = round(
-      (0.30 * normalize(momentum, 100)) +
+      (0.30 * normMomentum) +
       (0.25 * writer) +
-      (0.20 * normalize(liquidity, 1000000)) +
-      (0.15 * normalize(volatility, 100)) +
+      (0.20 * normLiquidity) +
+      (0.15 * normVolatility) +
       (0.10 * prox),
       4
     );
+
+    // PCR from option chain
+    const totalCallOI = smoothed.smoothedRows.reduce((sum, r) => sum + (r.callOI || 0), 0);
+    const totalPutOI = smoothed.smoothedRows.reduce((sum, r) => sum + (r.putOI || 0), 0);
+    const pcr = totalCallOI > 0 ? round(totalPutOI / totalCallOI, 4) : 1;
 
     return {
       spot: round(spot, 2),
@@ -186,7 +208,10 @@ export class AnalyticsEngine {
       buyerSeller,
       liquidity,
       biasScore,
-      breakoutScore
+      breakoutScore,
+      pcr,
+      // Pass normalized values for downstream use
+      _normalized: { momentum: normMomentum, gex: normGex, vwapDev: normVwapDev, liquidity: normLiquidity, volatility: normVolatility }
     };
   }
 
@@ -195,7 +220,8 @@ export class AnalyticsEngine {
       spot: 0, futures: 0, support: null, resistance: null,
       momentum: 0, shortMomentum: 0, vwap: 0, volatility: 0,
       gex: 0, writer: 0, writerRelation: 'BALANCED', buyerSeller: 'BALANCED',
-      liquidity: 0, biasScore: 0, breakoutScore: 0
+      liquidity: 0, biasScore: 0, breakoutScore: 0, pcr: 1,
+      _normalized: { momentum: 0, gex: 0, vwapDev: 0, liquidity: 0, volatility: 0 }
     };
   }
 }

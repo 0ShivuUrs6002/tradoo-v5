@@ -1,4 +1,4 @@
-import { PenTool, Flame, Coins, Target } from 'lucide-react';
+import { PenTool, Flame, Coins, Target, BarChart3, Gauge } from 'lucide-react';
 
 // ─── Signal Card ──────────────────────────────────────────────────────────────
 
@@ -42,6 +42,7 @@ export const SignalsTab = ({ data }) => {
   const a = data?.analytics || {};
   const coh = data?.coherence || {};
   const pred = data?.prediction || {};
+  const ind = data?.indicators || {};
 
   const writerTone = a.writerRelation === 'BULLISH_WRITERS' ? 'bullish'
     : a.writerRelation === 'BEARISH_WRITERS' ? 'bearish' : 'neutral';
@@ -53,41 +54,62 @@ export const SignalsTab = ({ data }) => {
   const btScore = a.breakoutScore;
   const btTone = btScore > 0.2 ? 'bullish' : btScore < -0.2 ? 'bearish' : 'neutral';
 
+  const rsiTone = ind.rsi >= 70 ? 'bearish' : ind.rsi <= 30 ? 'bullish' : 'neutral';
+  const rsiLabel = ind.rsi >= 70 ? 'OVERBOUGHT' : ind.rsi <= 30 ? 'OVERSOLD' : 'NEUTRAL ZONE';
+
+  const pcrVal = ind.pcr || a.pcr;
+  const pcrTone = pcrVal > 1.2 ? 'bullish' : pcrVal < 0.8 ? 'bearish' : 'neutral';
+  const pcrLabel = pcrVal > 1.2 ? 'PUT HEAVY (BULLISH)' : pcrVal < 0.8 ? 'CALL HEAVY (BEARISH)' : 'BALANCED';
+
   return (
     <div className="stack">
       {/* Top signal cards */}
       <div className="grid2">
         <SignalCard
-          icon={PenTool} title="WRITER FLOW" delay={1}
+          icon={Gauge} title="RSI-14" delay={1}
+          value={ind.rsi != null ? ind.rsi.toFixed(1) : '—'}
+          label={rsiLabel}
+          tone={rsiTone}
+          sub="Relative Strength Index · 14-period"
+        />
+        <SignalCard
+          icon={BarChart3} title="PUT-CALL RATIO" delay={2}
+          value={pcrVal != null ? pcrVal.toFixed(3) : '—'}
+          label={pcrLabel}
+          tone={pcrTone}
+          sub="Total Put OI / Call OI · Contrarian"
+        />
+        <SignalCard
+          icon={PenTool} title="WRITER FLOW" delay={3}
           value={a.writer != null ? (a.writer > 0 ? '+' : '') + a.writer.toFixed(4) : '—'}
           label={a.writerRelation || 'BALANCED'}
           tone={writerTone}
-          sub={`Put pressure vs Call pressure`}
+          sub="Put pressure vs Call pressure"
         />
         <SignalCard
-          icon={Flame} title="BREAKOUT SCORE" delay={2}
+          icon={Flame} title="BREAKOUT SCORE" delay={4}
           value={btScore != null ? (btScore > 0 ? '+' : '') + btScore.toFixed(4) : '—'}
           label={btScore > 0.2 ? 'BREAKOUT LIKELY' : btScore < -0.2 ? 'BREAKDOWN RISK' : 'CONSOLIDATING'}
           tone={btTone}
-          sub={`Momentum + Writer + Volume + Volatility`}
+          sub="Momentum + Writer + Volume + Volatility"
         />
         <SignalCard
-          icon={Coins} title="BUYER / SELLER" delay={3}
+          icon={Coins} title="BUYER / SELLER" delay={5}
           value={a.buyerSeller || '—'}
           tone={bsTone}
-          sub={`Based on OI change & price direction`}
+          sub="Based on OI change & price direction"
         />
         <SignalCard
-          icon={Target} title="MARKET BIAS" delay={4}
+          icon={Target} title="MARKET BIAS" delay={6}
           value={a.biasScore != null ? (a.biasScore > 0 ? '+' : '') + a.biasScore.toFixed(4) : '—'}
           label={a.biasScore > 0.1 ? 'BULLISH' : a.biasScore < -0.1 ? 'BEARISH' : 'NEUTRAL'}
           tone={biosTone}
-          sub={`Momentum + VWAP + GEX + Writer`}
+          sub="Momentum + VWAP + GEX + Writer"
         />
       </div>
 
       {/* Coherence signal breakdown */}
-      <div className="card slide-up-3">
+      <div className="card slide-up-5">
         <div className="card-header">
           <div className="card-title">Coherence Signal Breakdown</div>
           <span className={`dir-badge ${coh.coherentDirection === 'BULLISH' ? 'bullish' : coh.coherentDirection === 'BEARISH' ? 'bearish' : 'neutral'}`}>
@@ -96,20 +118,25 @@ export const SignalsTab = ({ data }) => {
         </div>
         <div style={{ marginBottom: 12, fontSize: 12, color: 'var(--text-muted)' }}>
           Dominant vector: <strong style={{ color: 'var(--text-secondary)', textTransform: 'uppercase' }}>{coh.dominantSignal || '—'}</strong>
-          &nbsp;·&nbsp; Total Score: <strong style={{ color: 'var(--text-accent)', fontFamily: 'var(--font-mono)' }}>{coh.coherenceScore?.toFixed(4) || '—'}</strong>
+          &nbsp;·&nbsp; Score: <strong style={{ color: 'var(--text-accent)', fontFamily: 'var(--font-mono)' }}>{coh.coherenceScore?.toFixed(4) || '—'}</strong>
+          &nbsp;·&nbsp; Quality: <strong style={{ color: 'var(--text-accent)', fontFamily: 'var(--font-mono)' }}>{coh.coherenceQuality != null ? (coh.coherenceQuality * 100).toFixed(0) + '%' : '—'}</strong>
         </div>
         {coh.signalBreakdown && (
           <div style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.2)', borderRadius: 6, border: '1px solid var(--border-color)' }}>
+            <ScoreBar label="EMA Crossover" value={coh.signalBreakdown.ema} />
+            <ScoreBar label="RSI" value={coh.signalBreakdown.rsi} />
+            <ScoreBar label="MACD" value={coh.signalBreakdown.macd} />
             <ScoreBar label="Price vs VWAP" value={coh.signalBreakdown.price} />
             <ScoreBar label="GEX Signal" value={coh.signalBreakdown.gex} />
+            <ScoreBar label="PCR" value={coh.signalBreakdown.pcr} />
             <ScoreBar label="Momentum" value={coh.signalBreakdown.momentum} />
             <ScoreBar label="Writer Flow" value={coh.signalBreakdown.flow} />
           </div>
         )}
       </div>
 
-      {/* Analytics metrics */}
-      <div className="card slide-up-4">
+      {/* Raw analytics */}
+      <div className="card slide-up-6">
         <div className="card-header">
           <div className="card-title">Raw Analytics</div>
         </div>

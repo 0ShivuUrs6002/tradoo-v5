@@ -1,35 +1,22 @@
-const getApiBase = () => {
-  // 1. Explicit env variable takes precedence
-  if (import.meta.env.VITE_API_BASE) {
-    return import.meta.env.VITE_API_BASE;
-  }
-  
-  // 2. Client-side fallback detection
-  if (typeof window !== 'undefined') {
-    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    
-    // If deployed on Vercel/Netlify but env var is missing, default to relative path.
-    // This assumes the user has configured Vercel redirects/rewrites to their backend.
-    if (!isLocal) {
-      return '/api';
-    }
-  }
-  
-  // 3. Localhost default
-  return 'http://localhost:4000/api';
-};
-
-const API_BASE = getApiBase();
+// We use relative paths because vite.config.js now proxies all /api requests directly to localhost:4000
+const API_BASE = import.meta.env.VITE_API_BASE || '/api';
 
 const FYERS_APP_ID = import.meta.env.VITE_FYERS_APP_ID || 'UO02TNC3AU-100';
 const FYERS_LOGIN_BASE = import.meta.env.VITE_FYERS_LOGIN_BASE_URL || 'https://api-t1.fyers.in/api/v3';
-const FYERS_REDIRECT_URI = import.meta.env.VITE_FYERS_REDIRECT_URI || 'https://frontend-virid-ten-vaa5fuxyde.vercel.app';
 
-export const needsLocalBridge = () => {
-  const isHttpsPage = typeof window !== 'undefined' && window.location.protocol === 'https:';
-  const usesHttpLocalApi = API_BASE.startsWith('http://localhost') || API_BASE.startsWith('http://127.0.0.1');
-  return isHttpsPage && usesHttpLocalApi;
+// Dynamically determine redirect URI to perfectly support Ngrok tunneling!
+const getRedirectUri = () => {
+  if (import.meta.env.VITE_FYERS_REDIRECT_URI) return import.meta.env.VITE_FYERS_REDIRECT_URI;
+  if (typeof window !== 'undefined') {
+    // Automatically adapts to whatever ngrok URL the user is currently on!
+    return window.location.origin;
+  }
+  return 'http://localhost:5173';
 };
+
+const FYERS_REDIRECT_URI = getRedirectUri();
+
+export const needsLocalBridge = () => false;
 
 export const buildDirectLoginUrl = (state = `TRADO_${Date.now()}`) => {
   const url = `${FYERS_LOGIN_BASE}/generate-authcode?${new URLSearchParams({
@@ -138,6 +125,18 @@ export const logoutAuth = async () => {
   const payload = await parseJson(response);
   if (!response.ok || !payload?.ok) {
     throw new Error(payload?.message || payload?.error || 'Session termination failed');
+  }
+  return payload.data;
+};
+
+// ─── World Data Fetching ─────────────────────────────────────────────────────
+
+export const fetchWorldData = async (worldType, symbol, days = 1) => {
+  const endpoint = worldType === 'crypto' ? 'crypto' : 'commodities';
+  const response = await fetch(`${API_BASE}/${endpoint}/${symbol}?days=${days}`);
+  const payload = await parseJson(response);
+  if (!response.ok || !payload?.ok) {
+    throw new Error(payload?.error || `Failed to fetch ${worldType} data`);
   }
   return payload.data;
 };

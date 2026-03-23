@@ -7,7 +7,7 @@ export const createSnapshot = ({ spot, futures, optionChain, candles }) => Objec
 });
 
 export class SnapshotBuffer {
-  constructor(limit = 20) {
+  constructor(limit = 60) {
     this.limit = limit;
     this.items = [];
   }

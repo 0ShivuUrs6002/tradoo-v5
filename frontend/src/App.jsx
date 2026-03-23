@@ -1,16 +1,25 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useStableDashboard } from './hooks/useStableDashboard';
-import { Tabs } from './components/Tabs';
+import { Tabs, NIFTY_TABS, COMMODITY_TABS, CRYPTO_TABS, PAPER_TRADE_TAB } from './components/Tabs';
 import { DashboardTab } from './components/DashboardTab';
 import { SignalsTab } from './components/SignalsTab';
 import { OptionChainTab } from './components/OptionChainTab';
 import { AnalyticsTab } from './components/AnalyticsTab';
 import { PredictionTab } from './components/PredictionTab';
-import { getLoginUrl, logoutAuth, setManualToken, validateAuthCode } from './api';
+import { PaperTradeTab } from './components/PaperTradeTab';
+import { SettingsTab } from './components/SettingsTab';
+import { WorldDashboard } from './components/WorldDashboard';
+import { AssetDropdown } from './components/AssetDropdown';
+import { WorldTransition } from './components/WorldTransition';
+import { getLoginUrl, logoutAuth, setManualToken, validateAuthCode, fetchWorldData } from './api';
 import {
   Activity, ArrowRight, Check, Zap, LogOut,
-  Target, ShieldCheck, TrendingUp, Key, Loader2, AlertTriangle, ChevronRight
+  Target, ShieldCheck, TrendingUp, Key, Loader2, AlertTriangle,
+  Sun, Moon, Download, X
 } from 'lucide-react';
+import { useTheme } from './components/ThemeProvider';
+import { useWorld } from './components/WorldProvider';
+import { usePaperTradeConfig } from './hooks/usePaperTrade';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -50,7 +59,7 @@ const AuthPanel = ({ message, onConnect, onManualConnect, onReset, connecting })
 
   return (
     <div className="auth-root fade-in">
-      <div className="auth-card slide-up-1">
+      <div className="card slide-up-1">
         <div className="auth-title">Connect Platform</div>
         <div className="auth-subtitle">
           Authenticate via Fyers OAuth to activate real-time intelligence feeds.
@@ -85,7 +94,7 @@ const AuthPanel = ({ message, onConnect, onManualConnect, onReset, connecting })
           className="btn primary btn-full"
           onClick={onConnect}
           disabled={connecting}
-          style={{ marginBottom: 16 }}
+          style={{ marginBottom: 14 }}
         >
           {connecting ? (
             <><Loader2 className="animate-spin" size={16} /> Redirecting</>
@@ -102,7 +111,7 @@ const AuthPanel = ({ message, onConnect, onManualConnect, onReset, connecting })
         )}
       </div>
 
-      <div className="auth-card slide-up-2">
+      <div className="card slide-up-2">
         <div className="auth-override-title">
           Manual Override
         </div>
@@ -116,7 +125,7 @@ const AuthPanel = ({ message, onConnect, onManualConnect, onReset, connecting })
           onChange={(e) => setToken(e.target.value)}
           rows={3}
         />
-        <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
+        <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
           <button
             type="button"
             className="btn success"
@@ -218,6 +227,60 @@ const TopStrip = ({ data }) => {
   );
 };
 
+// ─── PWA Install Banner ────────────────────────────────────────────────────────
+
+const PWAInstallBanner = () => {
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [showBanner, setShowBanner] = useState(false);
+
+  useEffect(() => {
+    const handler = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      // Only show if not dismissed before
+      const dismissed = localStorage.getItem('TRADO_PWA_DISMISSED');
+      if (!dismissed) setShowBanner(true);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstall = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const result = await deferredPrompt.userChoice;
+    if (result.outcome === 'accepted') {
+      setShowBanner(false);
+    }
+    setDeferredPrompt(null);
+  };
+
+  const handleDismiss = () => {
+    setShowBanner(false);
+    localStorage.setItem('TRADO_PWA_DISMISSED', '1');
+  };
+
+  if (!showBanner) return null;
+
+  return (
+    <div className="pwa-install-banner">
+      <div>
+        <div className="pwa-text">Install TRADO App</div>
+        <div className="pwa-sub">Add to home screen for instant access</div>
+      </div>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <button className="pwa-install-btn" onClick={handleInstall}>
+          <Download size={14} style={{ marginRight: 4, verticalAlign: -2 }} />
+          Install
+        </button>
+        <button className="pwa-dismiss-btn" onClick={handleDismiss}>
+          <X size={16} />
+        </button>
+      </div>
+    </div>
+  );
+};
+
 // ─── App ──────────────────────────────────────────────────────────────────────
 
 export const App = () => {
@@ -231,6 +294,36 @@ export const App = () => {
   });
 
   const { tabData, loading, error, authRequired } = useStableDashboard();
+  const { theme, toggleTheme } = useTheme();
+  const { activeWorld, selectedAsset, transitioning, worldConfig } = useWorld();
+  const { isPaperTradeEnabled } = usePaperTradeConfig();
+
+  // World data for commodity/crypto
+  const [worldData, setWorldData] = useState(null);
+  const [worldLoading, setWorldLoading] = useState(false);
+  const [worldError, setWorldError] = useState(null);
+  const [chartDays, setChartDays] = useState(1);
+
+  // Fetch world data when world or asset changes
+  useEffect(() => {
+    if (activeWorld === 'nifty') { setWorldData(null); return; }
+    let cancelled = false;
+    const load = async () => {
+      setWorldLoading(true);
+      setWorldError(null);
+      try {
+        const data = await fetchWorldData(activeWorld, selectedAsset, chartDays);
+        if (!cancelled) setWorldData(data);
+      } catch (err) {
+        if (!cancelled) setWorldError(err.message);
+      } finally {
+        if (!cancelled) setWorldLoading(false);
+      }
+    };
+    load();
+    const interval = setInterval(load, 5000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [activeWorld, selectedAsset, chartDays]);
 
   const connectFyers = async () => {
     setConnecting(true);
@@ -300,8 +393,6 @@ export const App = () => {
         setConnecting(false);
         setAuthCallbackPending(false);
         
-        // If a user copy-pasted a dirty link with an expired auth code to a new device,
-        // auth fails. Since they never clicked "Launch Terminal" here, bounce them back to the landing page.
         if (window.localStorage.getItem('TRADOO_ENTERED') !== '1') {
           setLandingEntered(false);
         }
@@ -324,7 +415,7 @@ export const App = () => {
   }, [tabData]);
 
   const statusTone = authRequired ? 'warn' : error ? 'danger' : loading ? 'warn' : 'ok';
-  const statusText = loading ? 'INITIALIZING' : authRequired ? 'AUTH PENDING' : error ? 'FEED DISCONNECTED' : 'LIVE SOCKET';
+  const statusText = loading ? 'INITIALIZING' : authRequired ? 'AUTH PENDING' : error ? 'DISCONNECTED' : 'LIVE';
 
   // Landing
   if (!landingEntered) {
@@ -335,20 +426,20 @@ export const App = () => {
   let content;
   if (error && !data && !authRequired && !authCallbackPending) {
     content = (
-      <div className="card fade-in" style={{ textAlign: 'center', padding: '80px 40px', borderColor: 'var(--red)' }}>
-        <AlertTriangle size={48} style={{ margin: '0 auto 20px', color: 'var(--red)' }} strokeWidth={1.5} />
-        <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 8, letterSpacing: 1, color: 'var(--text-primary)' }}>CONNECTION FAILED</div>
-        <div style={{ fontSize: 13, color: 'var(--text-secondary)', maxWidth: 400, margin: '0 auto' }}>
+      <div className="card fade-in" style={{ textAlign: 'center', padding: '60px 32px', borderColor: 'var(--red)' }}>
+        <AlertTriangle size={40} style={{ margin: '0 auto 16px', color: 'var(--red)' }} strokeWidth={1.5} />
+        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6, letterSpacing: 1, color: 'var(--text-primary)' }}>CONNECTION FAILED</div>
+        <div style={{ fontSize: 12, color: 'var(--text-secondary)', maxWidth: 400, margin: '0 auto' }}>
           {error}
         </div>
       </div>
     );
   } else if (authCallbackPending) {
     content = (
-      <div className="card fade-in" style={{ textAlign: 'center', padding: '60px 40px' }}>
-        <Loader2 className="animate-spin" size={40} style={{ margin: '0 auto 20px', color: 'var(--text-accent)' }} />
-        <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 8, letterSpacing: 1 }}>VERIFYING CREDENTIALS</div>
-        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Establishing secure pipeline connection...</div>
+      <div className="card fade-in" style={{ textAlign: 'center', padding: '48px 32px' }}>
+        <Loader2 className="animate-spin" size={36} style={{ margin: '0 auto 16px', color: 'var(--text-accent)' }} />
+        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6, letterSpacing: 1 }}>VERIFYING CREDENTIALS</div>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Establishing secure pipeline connection...</div>
       </div>
     );
   } else if (authRequired && !data) {
@@ -367,13 +458,14 @@ export const App = () => {
     else if (activeTab === 'Option Chain') content = <OptionChainTab data={data} />;
     else if (activeTab === 'Analytics') content = <AnalyticsTab data={data} />;
     else if (activeTab === 'Prediction') content = <PredictionTab data={data} />;
+    else if (activeTab === 'Paper Trade') content = <PaperTradeTab data={data} />;
   } else {
     content = (
       <div className="grid2">
         {Array.from({ length: 6 }).map((_, i) => (
           <div key={i} className="kpi-card">
-            <div className="skeleton" style={{ height: 12, width: '40%', marginBottom: 12 }} />
-            <div className="skeleton" style={{ height: 32, width: '60%' }} />
+            <div className="skeleton" style={{ height: 10, width: '40%', marginBottom: 10 }} />
+            <div className="skeleton" style={{ height: 28, width: '60%' }} />
           </div>
         ))}
       </div>
@@ -395,23 +487,68 @@ export const App = () => {
           </div>
           <div className="header-right">
             {data && <TopStrip data={data} />}
+            {activeWorld !== 'nifty' && <AssetDropdown />}
             <div className={`status-badge ${statusTone}`}>
               <span className={`status-dot ${statusTone}`} />
               {statusText}
             </div>
             {data && (
-              <button type="button" className="btn ghost icon-only" onClick={resetConnection} title="Terminate Connection">
-                <LogOut size={16} />
-              </button>
+              <>
+                <button type="button" className="btn ghost icon-only" onClick={toggleTheme} title="Toggle Theme">
+                  {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+                </button>
+                <button type="button" className="btn ghost icon-only" onClick={resetConnection} title="Terminate Connection">
+                  <LogOut size={16} />
+                </button>
+              </>
             )}
           </div>
         </header>
 
         {/* Tabs */}
-        <Tabs active={activeTab} onChange={setActiveTab} />
+        <Tabs
+          active={activeTab}
+          onChange={setActiveTab}
+          worldTabs={
+            activeWorld === 'commodities' ? COMMODITY_TABS 
+            : activeWorld === 'crypto' ? CRYPTO_TABS 
+            : (isPaperTradeEnabled ? [...NIFTY_TABS.filter(t => t.id !== 'Settings'), PAPER_TRADE_TAB, NIFTY_TABS.find(t => t.id === 'Settings')] : NIFTY_TABS)
+          }
+        />
 
         {/* Content */}
-        <section className="content fade-in">{content}</section>
+        <section className="content fade-in">
+          {activeTab === 'Settings' ? (
+            <SettingsTab />
+          ) : activeWorld !== 'nifty' ? (
+            worldLoading && !worldData ? (
+              <div className="grid2">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="kpi-card">
+                    <div className="skeleton" style={{ height: 10, width: '40%', marginBottom: 10 }} />
+                    <div className="skeleton" style={{ height: 28, width: '60%' }} />
+                  </div>
+                ))}
+              </div>
+            ) : worldError ? (
+              <div className="card" style={{ textAlign: 'center', padding: '48px 32px', borderColor: 'var(--red)' }}>
+                <AlertTriangle size={36} style={{ margin: '0 auto 12px', color: 'var(--red)' }} />
+                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>Data Error</div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{worldError}</div>
+              </div>
+            ) : worldData ? (
+              <WorldDashboard data={worldData} worldType={activeWorld} onPeriodChange={setChartDays} activePeriod={chartDays} />
+            ) : null
+          ) : (
+            content
+          )}
+        </section>
+
+        {/* World Transition Overlay */}
+        <WorldTransition />
+
+        {/* PWA Install Banner */}
+        <PWAInstallBanner />
       </main>
     </>
   );

@@ -2,6 +2,9 @@ import express from 'express';
 import { config } from '../config.js';
 import { authService } from '../services/authService.js';
 import { pipelineOrchestrator } from '../pipeline/pipelineOrchestrator.js';
+import { cryptoService } from '../services/cryptoService.js';
+import { commodityService } from '../services/commodityService.js';
+import { round, clamp } from '../utils/math.js';
 
 export const apiRouter = express.Router();
 
@@ -168,19 +171,174 @@ function _emptyDashboard() {
       spot: 0, futures: 0, support: null, resistance: null,
       momentum: 0, shortMomentum: 0, vwap: 0, volatility: 0,
       gex: 0, writer: 0, writerRelation: 'BALANCED', buyerSeller: 'BALANCED',
-      liquidity: 0, biasScore: 0, breakoutScore: 0
+      liquidity: 0, biasScore: 0, breakoutScore: 0, pcr: 1,
+      _normalized: { momentum: 0, gex: 0, vwapDev: 0, liquidity: 0, volatility: 0 }
     },
     prediction: {
-      predictionScore: 0, direction: 'NEUTRAL', confidence: 0,
-      confidenceLabel: 'LOW',
-      inputs: { bias: 0, momentum: 0, gex: 0, liquidity: 0, volatility: 0, vwapDeviation: 0 }
+      predictionScore: 0, probability: 50, direction: 'NEUTRAL',
+      timeframes: {
+        m15: { score: 0, direction: 'FLAT', probability: 50 },
+        m30: { score: 0, direction: 'FLAT', probability: 50 },
+        h1:  { score: 0, direction: 'FLAT', probability: 50 }
+      },
+      signals: {
+        emaCross: 0, rsi: 0, macd: 0, pcr: 0, writer: 0,
+        ivSkew: 0, gex: 0, vwapDev: 0, momentum: 0,
+        srProximity: 0, oiConcentration: 0, volumeSurge: 0, divergence: 0
+      }
+    },
+    reversal: {
+      probability: 0, isMajorReversal: false, direction: 'NONE', warnings: []
+    },
+    gap: {
+      direction: 'FLAT', probability: 50, score: 0, signals: []
     },
     coherence: {
       coherentDirection: 'NEUTRAL', coherenceScore: 0,
-      dominantSignal: 'price',
-      signalBreakdown: { price: 0, gex: 0, momentum: 0, flow: 0 }
+      dominantSignal: 'ema', coherenceQuality: 0,
+      signalBreakdown: { ema: 0, rsi: 0, macd: 0, price: 0, gex: 0, pcr: 0, momentum: 0, flow: 0 }
+    },
+    indicators: {
+      rsi: 50, ema9: 0, ema21: 0,
+      macd: { macdLine: 0, signalLine: 0, histogram: 0 },
+      atr: 0, pcr: 1, ivSkew: 0, volumeSurge: 0,
+      momentum1m: 0, momentum5m: 0, momentum15m: 0
     },
     stability: { confirmedCycles: 0, pendingCycles: 0, frozenUntil: 0, updated: false },
     meta: { snapshots: 0, smoothedRows: [], candles: [], spot: null, futures: null, cycleCount: 0 }
   };
 }
+
+// ─── Prediction Cache (60s stable) ───────────────────────────────────────────
+const predictionCache = {};
+const PRED_TTL = 60000;
+
+function getCachedPrediction(key, computeFn) {
+  const c = predictionCache[key];
+  if (c && Date.now() - c.ts < PRED_TTL) return c.data;
+  const pred = computeFn();
+  predictionCache[key] = { data: pred, ts: Date.now() };
+  return pred;
+}
+
+// ─── Crypto Dashboard Data ───────────────────────────────────────────────────
+
+apiRouter.get('/crypto/:symbol', async (req, res) => {
+  try {
+    const symbol = (req.params.symbol || 'BTC').toUpperCase();
+    const days = parseInt(req.query.days) || 1;
+    const data = await cryptoService.getDashboardData(symbol, days);
+
+    // Stable predictions — cached 60s so they don't flip on 5s refresh
+    const prediction = getCachedPrediction(`crypto_${symbol}`, () => {
+      const momScore = clamp((data.momentum || 0) * 500, -1, 1);
+      const rsiScore = clamp((50 - (data.rsi || 50)) / 50, -1, 1);
+      const emaScore = clamp((data.emaCross || 0), -1, 1);
+      const toPercent = (s) => round(clamp((s + 1) / 2) * 100, 1);
+      const formatDir = (s) => s > 0.15 ? 'BULLISH' : s < -0.15 ? 'BEARISH' : 'FLAT';
+      const m15 = clamp(momScore * 0.6 + emaScore * 0.4);
+      const m30 = clamp(momScore * 0.4 + rsiScore * 0.3 + emaScore * 0.3);
+      const h1  = clamp(rsiScore * 0.4 + emaScore * 0.4 + momScore * 0.2);
+      const avg = (m15 + m30 + h1) / 3;
+      const dirs = [formatDir(m15), formatDir(m30), formatDir(h1)];
+      const bullish = dirs.filter(d => d === 'BULLISH').length;
+      const bearish = dirs.filter(d => d === 'BEARISH').length;
+      return {
+        probability: toPercent(avg),
+        direction: bullish >= 2 ? 'BULLISH' : bearish >= 2 ? 'BEARISH' : 'MIXED',
+        timeframes: {
+          m15: { probability: toPercent(m15), direction: formatDir(m15), score: round(m15, 4) },
+          m30: { probability: toPercent(m30), direction: formatDir(m30), score: round(m30, 4) },
+          h1:  { probability: toPercent(h1),  direction: formatDir(h1),  score: round(h1, 4) }
+        }
+      };
+    });
+
+    res.json({
+      ok: true,
+      data: {
+        name: data.name,
+        symbol: data.symbol,
+        spot: data.spot,
+        volume24h: data.volume24h,
+        change24h: data.change24h,
+        high24h: data.high24h,
+        low24h: data.low24h,
+        momentum: data.momentum,
+        biasScore: data.biasScore,
+        rsi: data.rsi,
+        ema9: data.ema9,
+        ema21: data.ema21,
+        sma50: data.sma50,
+        sma200: data.sma200,
+        support: data.support,
+        resistance: data.resistance,
+        chartData: data.chartData,
+        reversalSignal: data.reversalSignal || null,
+        prediction
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ─── Commodity Dashboard Data ────────────────────────────────────────────────
+
+apiRouter.get('/commodities/:symbol', async (req, res) => {
+  try {
+    const symbol = (req.params.symbol || 'GOLD').toUpperCase();
+    const days = parseInt(req.query.days) || 1;
+    const data = await commodityService.getDashboardData(symbol, days);
+
+    // Stable predictions — cached 60s
+    const prediction = getCachedPrediction(`commodity_${symbol}`, () => {
+      const momScore = clamp((data.momentum || 0) * 500, -1, 1);
+      const rsiScore = clamp((50 - (data.rsi || 50)) / 50, -1, 1);
+      const toPercent = (s) => round(clamp((s + 1) / 2) * 100, 1);
+      const formatDir = (s) => s > 0.15 ? 'BULLISH' : s < -0.15 ? 'BEARISH' : 'FLAT';
+      const m15 = clamp(momScore * 0.7 + rsiScore * 0.3);
+      const m30 = clamp(momScore * 0.5 + rsiScore * 0.5);
+      const h1  = clamp(rsiScore * 0.6 + momScore * 0.4);
+      const avg = (m15 + m30 + h1) / 3;
+      const dirs = [formatDir(m15), formatDir(m30), formatDir(h1)];
+      const bullish = dirs.filter(d => d === 'BULLISH').length;
+      const bearish = dirs.filter(d => d === 'BEARISH').length;
+      return {
+        probability: toPercent(avg),
+        direction: bullish >= 2 ? 'BULLISH' : bearish >= 2 ? 'BEARISH' : 'MIXED',
+        timeframes: {
+          m15: { probability: toPercent(m15), direction: formatDir(m15), score: round(m15, 4) },
+          m30: { probability: toPercent(m30), direction: formatDir(m30), score: round(m30, 4) },
+          h1:  { probability: toPercent(h1),  direction: formatDir(h1),  score: round(h1, 4) }
+        }
+      };
+    });
+
+    res.json({
+      ok: true,
+      data: {
+        name: data.name,
+        symbol: data.symbol,
+        spot: data.spot,
+        currency: data.currency || '₹',
+        change24h: data.change24h,
+        volume24h: data.volume24h,
+        high24h: data.high24h,
+        low24h: data.low24h,
+        momentum: data.momentum,
+        biasScore: data.biasScore,
+        rsi: data.rsi,
+        ema9: data.ema9,
+        ema21: data.ema21,
+        support: data.support,
+        resistance: data.resistance,
+        chartData: data.chartData,
+        reversalSignal: data.reversalSignal || null,
+        prediction
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});

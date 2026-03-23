@@ -184,7 +184,7 @@ export class DataFetcher {
             symbol: config.symbol,
             resolution: config.candlesResolution,
             date_format: '0',
-            range_from: `${Math.floor((Date.now() - 6 * 60 * 1000) / 1000)}`,
+            range_from: `${Math.floor((Date.now() - 30 * 60 * 1000) / 1000)}`,
             range_to: `${Math.floor(Date.now() / 1000)}`,
             cont_flag: '1'
           }

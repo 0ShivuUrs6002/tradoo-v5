@@ -1,20 +1,18 @@
 // ─── Bias Gauge (SVG arc) ─────────────────────────────────────────────────────
 
 const BiasGauge = ({ value = 0 }) => {
-  // value: -1 to +1
   const clamped = Math.max(-1, Math.min(1, value));
   const r = 70;
   const cx = 90;
   const cy = 88;
   const startAngle = -180;
   const endAngle = 0;
-  // Map clamped (-1 to +1) to angle (-180 to 0)
   const needleAngle = startAngle + ((clamped + 1) / 2) * (endAngle - startAngle);
   const needleRad = (needleAngle * Math.PI) / 180;
   const nx = cx + r * Math.cos(needleRad);
   const ny = cy + r * Math.sin(needleRad);
 
-  const arcPath = (start, end, color) => {
+  const arcPath = (start, end) => {
     const toRad = (deg) => (deg * Math.PI) / 180;
     const x1 = cx + r * Math.cos(toRad(start));
     const y1 = cy + r * Math.sin(toRad(start));
@@ -29,22 +27,14 @@ const BiasGauge = ({ value = 0 }) => {
   return (
     <div className="gauge-wrap">
       <svg width="180" height="100" style={{ overflow: 'visible' }}>
-        {/* Background arc */}
-        <path d={arcPath(-180, 0, '')} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="10" />
-        {/* Bearish zone */}
-        <path d={arcPath(-180, -90, '')} fill="none" stroke="rgba(248,113,113,0.3)" strokeWidth="10" />
-        {/* Neutral zone */}
-        <path d={arcPath(-90, -90, '')} fill="none" stroke="rgba(251,191,36,0.3)" strokeWidth="10" />
-        {/* Bullish zone */}
-        <path d={arcPath(-90, 0, '')} fill="none" stroke="rgba(34,197,94,0.3)" strokeWidth="10" />
-        {/* Needle */}
-        <line x1={cx} y1={cy} x2={nx} y2={ny}
-          stroke={tone} strokeWidth="2.5" strokeLinecap="round" />
+        <path d={arcPath(-180, 0)} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="10" />
+        <path d={arcPath(-180, -90)} fill="none" stroke="rgba(248,113,113,0.3)" strokeWidth="10" />
+        <path d={arcPath(-90, -90)} fill="none" stroke="rgba(251,191,36,0.3)" strokeWidth="10" />
+        <path d={arcPath(-90, 0)} fill="none" stroke="rgba(34,197,94,0.3)" strokeWidth="10" />
+        <line x1={cx} y1={cy} x2={nx} y2={ny} stroke={tone} strokeWidth="2.5" strokeLinecap="round" />
         <circle cx={cx} cy={cy} r="5" fill={tone} />
-        {/* Labels */}
         <text x={cx - r - 8} y={cy + 12} fontSize="9" fill="var(--red)" textAnchor="end">BEAR</text>
         <text x={cx + r + 8} y={cy + 12} fontSize="9" fill="var(--green)" textAnchor="start">BULL</text>
-        {/* Value */}
         <text x={cx} y={cy + 28} fontSize="15" fontWeight="700" fontFamily="JetBrains Mono, monospace" fill={tone} textAnchor="middle">
           {(clamped > 0 ? '+' : '') + clamped.toFixed(3)}
         </text>
@@ -64,10 +54,36 @@ const ARow = ({ label, value, mono = true, color }) => (
   </div>
 );
 
+// ─── RSI Mini Bar ─────────────────────────────────────────────────────────────
+
+const RSIBar = ({ value = 50 }) => {
+  const pct = Math.min(100, Math.max(0, value));
+  const color = value >= 70 ? 'var(--red)' : value <= 30 ? 'var(--green)' : 'var(--amber)';
+  const label = value >= 70 ? 'OVERBOUGHT' : value <= 30 ? 'OVERSOLD' : 'NEUTRAL';
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+        <span style={{ color: 'var(--text-muted)' }}>RSI-14</span>
+        <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color }}>{value?.toFixed(1)}</span>
+      </div>
+      <div className="strength-bar-track" style={{ height: 8, position: 'relative' }}>
+        {/* Zones */}
+        <div style={{ position: 'absolute', left: 0, width: '30%', height: '100%', background: 'rgba(34,197,94,0.15)', borderRadius: '3px 0 0 3px' }} />
+        <div style={{ position: 'absolute', right: 0, width: '30%', height: '100%', background: 'rgba(248,113,113,0.15)', borderRadius: '0 3px 3px 0' }} />
+        {/* Needle */}
+        <div style={{ position: 'absolute', left: `${pct}%`, top: -1, width: 3, height: 10, background: color, borderRadius: 2, transform: 'translateX(-50%)' }} />
+      </div>
+      <div style={{ fontSize: 10, textAlign: 'right', color }}>{label}</div>
+    </div>
+  );
+};
+
 // ─── Analytics Tab ────────────────────────────────────────────────────────────
 
 export const AnalyticsTab = ({ data }) => {
   const a = data?.analytics || {};
+  const ind = data?.indicators || {};
+  const macd = ind.macd || {};
 
   const gexColor = a.gex > 0 ? 'var(--green)' : a.gex < 0 ? 'var(--red)' : undefined;
   const momColor = a.momentum > 0 ? 'var(--green)' : a.momentum < 0 ? 'var(--red)' : undefined;
@@ -102,9 +118,73 @@ export const AnalyticsTab = ({ data }) => {
         </div>
       </div>
 
+      {/* Technical Indicators — NEW */}
+      <div className="card slide-up-2">
+        <div className="card-header">
+          <div className="card-title">Technical Indicators</div>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Real-time computed</span>
+        </div>
+        <div className="grid2" style={{ gap: 16, padding: '8px 0' }}>
+          <div>
+            <RSIBar value={ind.rsi} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+              <span style={{ color: 'var(--text-muted)' }}>MACD Histogram</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: macd.histogram > 0 ? 'var(--green)' : macd.histogram < 0 ? 'var(--red)' : undefined }}>
+                {macd.histogram != null ? (macd.histogram > 0 ? '+' : '') + macd.histogram.toFixed(4) : '—'}
+              </span>
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+              Line: {macd.macdLine?.toFixed(2) || '—'} · Signal: {macd.signalLine?.toFixed(2) || '—'}
+            </div>
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 8 }}>
+          <div style={{ textAlign: 'center', padding: '8px 4px', background: 'rgba(0,0,0,0.15)', borderRadius: 6 }}>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: 0.5 }}>EMA 9</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginTop: 2 }}>
+              {ind.ema9 ? ind.ema9.toLocaleString('en-IN', { maximumFractionDigits: 1 }) : '—'}
+            </div>
+          </div>
+          <div style={{ textAlign: 'center', padding: '8px 4px', background: 'rgba(0,0,0,0.15)', borderRadius: 6 }}>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: 0.5 }}>EMA 21</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginTop: 2 }}>
+              {ind.ema21 ? ind.ema21.toLocaleString('en-IN', { maximumFractionDigits: 1 }) : '—'}
+            </div>
+          </div>
+          <div style={{ textAlign: 'center', padding: '8px 4px', background: 'rgba(0,0,0,0.15)', borderRadius: 6 }}>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: 0.5 }}>ATR-14</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginTop: 2 }}>
+              {ind.atr?.toFixed(2) || '—'}
+            </div>
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 8 }}>
+          <div style={{ textAlign: 'center', padding: '8px 4px', background: 'rgba(0,0,0,0.15)', borderRadius: 6 }}>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: 0.5 }}>PCR</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 700, color: ind.pcr > 1.2 ? 'var(--green)' : ind.pcr < 0.8 ? 'var(--red)' : 'var(--amber)', marginTop: 2 }}>
+              {ind.pcr?.toFixed(3) || '—'}
+            </div>
+          </div>
+          <div style={{ textAlign: 'center', padding: '8px 4px', background: 'rgba(0,0,0,0.15)', borderRadius: 6 }}>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: 0.5 }}>IV SKEW</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginTop: 2 }}>
+              {ind.ivSkew?.toFixed(4) || '—'}
+            </div>
+          </div>
+          <div style={{ textAlign: 'center', padding: '8px 4px', background: 'rgba(0,0,0,0.15)', borderRadius: 6 }}>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: 0.5 }}>VOL SURGE</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 700, color: ind.volumeSurge > 0.3 ? 'var(--amber)' : 'var(--text-primary)', marginTop: 2 }}>
+              {ind.volumeSurge != null ? (ind.volumeSurge * 100).toFixed(0) + '%' : '—'}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Key metrics */}
       <div className="grid2">
-        <div className="card slide-up-2">
+        <div className="card slide-up-3">
           <div className="card-header"><div className="card-title">Price & Volume</div></div>
           <ARow label="Spot Price" value={a.spot?.toLocaleString('en-IN', { maximumFractionDigits: 2 })} />
           <ARow label="Futures" value={a.futures?.toLocaleString('en-IN', { maximumFractionDigits: 2 })} />
@@ -112,7 +192,7 @@ export const AnalyticsTab = ({ data }) => {
           <ARow label="Liquidity" value={a.liquidity?.toLocaleString('en-IN')} />
         </div>
 
-        <div className="card slide-up-3">
+        <div className="card slide-up-4">
           <div className="card-header"><div className="card-title">Momentum & Volatility</div></div>
           <ARow
             label="Momentum (5m)" mono
@@ -132,7 +212,7 @@ export const AnalyticsTab = ({ data }) => {
           />
         </div>
 
-        <div className="card slide-up-4">
+        <div className="card slide-up-5">
           <div className="card-header"><div className="card-title">Writer & Flow</div></div>
           <ARow label="Writer Signal" value={a.writer?.toFixed(4)} />
           <ARow label="Writer Relation" mono={false}
@@ -146,7 +226,7 @@ export const AnalyticsTab = ({ data }) => {
           <ARow label="Breakout Score" value={a.breakoutScore?.toFixed(4)} />
         </div>
 
-        <div className="card slide-up-5">
+        <div className="card slide-up-6">
           <div className="card-header"><div className="card-title">Support / Resistance</div></div>
           <ARow label="Support Strike" value={a.support?.strike?.toLocaleString('en-IN')} />
           <ARow label="S Strength" value={a.support?.supportScore?.toFixed(3)} />

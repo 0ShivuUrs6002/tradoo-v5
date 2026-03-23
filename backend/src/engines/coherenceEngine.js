@@ -1,41 +1,57 @@
-import { normalize, round } from '../utils/math.js';
+import { normalize, round, clamp } from '../utils/math.js';
 
 class CoherenceEngine {
   /**
-   * Priority stack: price > GEX > momentum > flow
-   * Stronger signal overrides weaker conflicting signals.
+   * Priority stack: Technical indicators > Price > GEX > Flow
+   * Uses RSI and MACD to strengthen signal validation.
    */
-  run({ analytics, prediction }) {
+  run({ analytics, prediction, indicators }) {
     const {
       spot = 0,
       vwap = 0,
       gex = 0,
       momentum = 0,
-      writer = 0
+      writer = 0,
+      _normalized = {}
     } = analytics;
 
-    // Normalize each signal to [-1, +1]
-    const priceSignal = normalize(spot - vwap, 100);
-    const gexSignal = normalize(gex, 100000);
-    const momentumSignal = normalize(momentum, 100);
+    const ind = indicators || {};
+
+    // Use adaptively normalized values when available
+    const priceSignal = _normalized.vwapDev || normalize(spot - vwap, 100);
+    const gexSignal = _normalized.gex || normalize(gex, 100000);
+    const momentumSignal = _normalized.momentum || normalize(momentum, 100);
     const flowSignal = writer || 0;
 
-    // Weighted combination — priority order: price 40%, gex 30%, momentum 20%, flow 10%
-    const weighted =
-      (0.40 * priceSignal) +
-      (0.30 * gexSignal) +
-      (0.20 * momentumSignal) +
-      (0.10 * flowSignal);
+    // Technical indicator signals
+    const rsiSignal = ind.rsiScore || 0;
+    const macdSignal = ind.macdScore || 0;
+    const emaSignal = ind.emaCrossSignal || 0;
+    const pcrSignal = ind.pcrScore || 0;
 
-    // Override logic: if price is strongly directional, it overrides weak signals
+    // Weighted combination with technical indicators getting priority
+    const weighted =
+      (0.20 * emaSignal) +      // EMA crossover (trend)
+      (0.15 * rsiSignal) +      // RSI (momentum exhaustion)
+      (0.15 * macdSignal) +     // MACD (momentum acceleration)
+      (0.15 * priceSignal) +    // Price vs VWAP
+      (0.15 * gexSignal) +      // GEX
+      (0.10 * momentumSignal) + // Raw momentum
+      (0.10 * flowSignal);       // Writer flow
+
+    // All signals for dominance detection
     const signals = [
-      { name: 'price', value: priceSignal, priority: 1 },
-      { name: 'gex', value: gexSignal, priority: 2 },
-      { name: 'momentum', value: momentumSignal, priority: 3 },
-      { name: 'flow', value: flowSignal, priority: 4 }
+      { name: 'ema', value: emaSignal, priority: 1 },
+      { name: 'rsi', value: rsiSignal, priority: 2 },
+      { name: 'macd', value: macdSignal, priority: 3 },
+      { name: 'price', value: priceSignal, priority: 4 },
+      { name: 'gex', value: gexSignal, priority: 5 },
+      { name: 'pcr', value: pcrSignal, priority: 6 },
+      { name: 'momentum', value: momentumSignal, priority: 7 },
+      { name: 'flow', value: flowSignal, priority: 8 }
     ];
 
-    // Find the dominant signal (strongest absolute value, highest priority for ties)
+    // Find the dominant signal
     const dominant = signals.reduce((best, sig) => {
       if (Math.abs(sig.value) > Math.abs(best.value) + 0.05) return sig;
       if (Math.abs(sig.value) >= Math.abs(best.value) - 0.05 && sig.priority < best.priority) return sig;
@@ -51,13 +67,24 @@ class CoherenceEngine {
       coherentDirection = prediction.direction || 'NEUTRAL';
     }
 
+    // Count agreements for coherence quality
+    const bullishSignals = signals.filter(s => s.value > 0.05).length;
+    const bearishSignals = signals.filter(s => s.value < -0.05).length;
+    const agreeing = Math.max(bullishSignals, bearishSignals);
+    const coherenceQuality = round(agreeing / signals.length, 4);
+
     return {
       coherentDirection,
       coherenceScore: round(weighted, 4),
       dominantSignal: dominant.name,
+      coherenceQuality,
       signalBreakdown: {
+        ema: round(emaSignal, 4),
+        rsi: round(rsiSignal, 4),
+        macd: round(macdSignal, 4),
         price: round(priceSignal, 4),
         gex: round(gexSignal, 4),
+        pcr: round(pcrSignal, 4),
         momentum: round(momentumSignal, 4),
         flow: round(flowSignal, 4)
       }
