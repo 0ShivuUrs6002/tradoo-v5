@@ -14,21 +14,26 @@ export const PaperTradeWorkspace = ({ data, onClose }) => {
   const [orderSide, setOrderSide] = useState('BUY');
   const [assetType, setAssetType] = useState('CE');
   const [qty, setQty] = useState(50);
-  const [selectedStrike, setSelectedStrike] = useState(data?.spot ? Math.round(data.spot / 50) * 50 : 0);
+  const initialSpot = data?.analytics?.spot || data?.spot || 0;
+  const [selectedStrike, setSelectedStrike] = useState(initialSpot ? Math.round(initialSpot / 50) * 50 : 0);
 
   const formatCurrency = (val) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(val || 0);
   const formatCompact = (val) => new Intl.NumberFormat('en-IN', { notation: 'compact', compactDisplay: 'short' }).format(val || 0);
   
   const { displayStrikes, atmStrike } = useMemo(() => {
-    if (!data?.optionChain || !data?.spot) return { displayStrikes: [], atmStrike: 0 };
-    const uniqueStrikes = [...new Set(data.optionChain.map(r => r.strike))].sort((a, b) => a - b);
+    const spot = data?.analytics?.spot || data?.spot;
+    if (!data?.optionChain || !Array.isArray(data.optionChain) || !spot) return { displayStrikes: [], atmStrike: 0 };
+    
+    // Safely extract valid numerical strikes
+    const validStrikes = data.optionChain.map(r => r?.strike).filter(s => typeof s === 'number');
+    const uniqueStrikes = [...new Set(validStrikes)].sort((a, b) => a - b);
     if (!uniqueStrikes.length) return { displayStrikes: [], atmStrike: 0 };
     
     let atm = uniqueStrikes[0];
-    let minDiff = Math.abs(uniqueStrikes[0] - data.spot);
+    let minDiff = Math.abs(uniqueStrikes[0] - spot);
     for (const str of uniqueStrikes) {
-      if (Math.abs(str - data.spot) < minDiff) {
-        minDiff = Math.abs(str - data.spot);
+      if (Math.abs(str - spot) < minDiff) {
+        minDiff = Math.abs(str - spot);
         atm = str;
       }
     }
@@ -39,13 +44,23 @@ export const PaperTradeWorkspace = ({ data, onClose }) => {
     return { displayStrikes: uniqueStrikes.slice(start, end + 1), atmStrike: atm };
   }, [data]);
 
+  // Synchronize selected strike with ATM by default
+  React.useEffect(() => {
+    if (atmStrike && selectedStrike === 0) {
+      setSelectedStrike(atmStrike);
+    }
+  }, [atmStrike, selectedStrike]);
+
   const liveOrderPrice = useMemo(() => {
     if (!data) return 0;
-    if (assetType === 'SPOT') return data.spot;
-    if (assetType === 'FUTURES') return data.futures || data.spot;
+    const spot = data?.analytics?.spot || data?.spot;
+    const futures = data?.analytics?.futures || data?.futures || spot;
+    
+    if (assetType === 'SPOT') return spot;
+    if (assetType === 'FUTURES') return futures;
     
     if (assetType === 'CE' || assetType === 'PE') {
-      const strikeRow = data.optionChain?.find(r => r.strike === selectedStrike);
+      const strikeRow = data.optionChain?.find(r => r?.strike === selectedStrike);
       if (strikeRow) {
         return assetType === 'CE' ? strikeRow.callLtp || 0 : strikeRow.putLtp || 0;
       }
@@ -185,15 +200,15 @@ export const PaperTradeWorkspace = ({ data, onClose }) => {
                     
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                       <div>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>Entry: ₹{pos.entryPrice.toFixed(2)}</div>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>LTP: <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>₹{pos.currentPrice?.toFixed(2) || '—'}</span></div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>Entry: ₹{(pos.entryPrice || 0).toFixed(2)}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>LTP: <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>₹{pos.currentPrice != null ? pos.currentPrice.toFixed(2) : '—'}</span></div>
                       </div>
                       <div style={{ textAlign: 'right' }}>
                         <div style={{ fontWeight: 800, color: isProfit ? 'var(--green)' : 'var(--red)', fontSize: 18, marginBottom: 2 }}>
-                          {isProfit ? '+' : ''}₹{pos.pnl.toFixed(2)}
+                          {isProfit ? '+' : ''}₹{(pos.pnl || 0).toFixed(2)}
                         </div>
                         <div style={{ fontSize: 11, color: isProfit ? 'var(--green)' : 'var(--red)', fontWeight: 700, opacity: 0.9 }}>
-                          {isProfit ? '+' : ''}{pos.pnlPercent.toFixed(2)}%
+                          {isProfit ? '+' : ''}{(pos.pnlPercent || 0).toFixed(2)}%
                         </div>
                       </div>
                     </div>
@@ -277,7 +292,7 @@ export const PaperTradeWorkspace = ({ data, onClose }) => {
                           </option>
                         ))
                       ) : (
-                        <option value={selectedStrike}>{selectedStrike} (Wait...)</option>
+                        <option value={selectedStrike || 0}>{selectedStrike || 'Fetching...'} (Wait...)</option>
                       )}
                     </select>
                     <ChevronDown size={14} style={{ position: 'absolute', right: 12, top: 12, pointerEvents: 'none', color: 'var(--text-muted)' }} />
