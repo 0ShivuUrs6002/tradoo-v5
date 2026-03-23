@@ -19,6 +19,26 @@ export const PaperTradeWorkspace = ({ data, onClose }) => {
   const formatCurrency = (val) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(val || 0);
   const formatCompact = (val) => new Intl.NumberFormat('en-IN', { notation: 'compact', compactDisplay: 'short' }).format(val || 0);
   
+  const { displayStrikes, atmStrike } = useMemo(() => {
+    if (!data?.optionChain || !data?.spot) return { displayStrikes: [], atmStrike: 0 };
+    const uniqueStrikes = [...new Set(data.optionChain.map(r => r.strike))].sort((a, b) => a - b);
+    if (!uniqueStrikes.length) return { displayStrikes: [], atmStrike: 0 };
+    
+    let atm = uniqueStrikes[0];
+    let minDiff = Math.abs(uniqueStrikes[0] - data.spot);
+    for (const str of uniqueStrikes) {
+      if (Math.abs(str - data.spot) < minDiff) {
+        minDiff = Math.abs(str - data.spot);
+        atm = str;
+      }
+    }
+    
+    const atmIdx = uniqueStrikes.indexOf(atm);
+    const start = Math.max(0, atmIdx - 5);
+    const end = Math.min(uniqueStrikes.length - 1, atmIdx + 5);
+    return { displayStrikes: uniqueStrikes.slice(start, end + 1), atmStrike: atm };
+  }, [data]);
+
   const liveOrderPrice = useMemo(() => {
     if (!data) return 0;
     if (assetType === 'SPOT') return data.spot;
@@ -250,9 +270,11 @@ export const PaperTradeWorkspace = ({ data, onClose }) => {
                         fontSize: 14, fontWeight: 700, appearance: 'none'
                       }}
                     >
-                      {data?.optionChain ? (
-                        [...new Set(data.optionChain.map(r => r.strike))].sort((a,b)=>a-b).map(str => (
-                          <option key={str} value={str}>{str}</option>
+                      {displayStrikes.length > 0 ? (
+                        displayStrikes.map(str => (
+                          <option key={str} value={str}>
+                             {str} {str === atmStrike ? '(ATM)' : ''}
+                          </option>
                         ))
                       ) : (
                         <option value={selectedStrike}>{selectedStrike} (Wait...)</option>
@@ -279,9 +301,16 @@ export const PaperTradeWorkspace = ({ data, onClose }) => {
               </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, padding: '12px 14px', background: 'var(--bg-surface-elevated)', borderRadius: 8 }}>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Execute @ Market</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, padding: '12px 14px', background: 'var(--bg-surface-elevated)', borderRadius: 8 }}>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600 }}>Execute @ Market</div>
               <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)' }}>₹{liveOrderPrice.toFixed(2)}</div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700 }}>Total Premium Required:</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-accent)' }}>
+                ₹{(liveOrderPrice * qty).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+              </div>
             </div>
 
             <button 
