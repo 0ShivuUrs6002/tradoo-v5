@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useStableDashboard } from './hooks/useStableDashboard';
-import { Tabs, NIFTY_TABS, COMMODITY_TABS, CRYPTO_TABS, PAPER_TRADE_TAB } from './components/Tabs';
+import { Tabs, NIFTY_TABS, COMMODITY_TABS, CRYPTO_TABS } from './components/Tabs';
 import { DashboardTab } from './components/DashboardTab';
 import { SignalsTab } from './components/SignalsTab';
 import { OptionChainTab } from './components/OptionChainTab';
